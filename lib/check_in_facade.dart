@@ -1,0 +1,89 @@
+library check_in_facade;
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+
+import 'package:check_in_credentials/check_in_credentials.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_stripe/flutter_stripe.dart' as stripe;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:injectable/injectable.dart';
+import 'package:get_it/get_it.dart';
+import 'package:check_in_domain/check_in_domain.dart';
+import 'package:dartz/dartz.dart';
+import 'package:location/location.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'dart:core';
+import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'check_in_facade.config.dart';
+
+
+part 'injection.dart';
+part 'injectable_module.dart';
+
+part 'un_auth/u_auth_facade.dart';
+part 'un_auth/unAuth_facade.dart';
+part 'un_auth/locations_facade/watcher/lo_un_auth_watcher_facade.dart';
+part 'un_auth/locations_facade/watcher/location_un_auth_watcher_facade.dart';
+
+part 'misc/m_misc_facade.dart';
+part 'misc/misc_facade.dart';
+
+part 'core/firestore_helpers.dart';
+
+part 'auth/user_facade/firebase_auth_facade.dart';
+part 'auth/user_facade/i_auth_facade.dart';
+
+part 'auth/stripe_facade/watcher/s_stripe_watcher_facade.dart';
+part 'auth/stripe_facade/watcher/stripe_watcher_facade.dart';
+part 'auth/stripe_facade/updater/s_stripe_facade.dart';
+part 'auth/stripe_facade/updater/stripe_facade.dart';
+
+part 'auth/reservation_facade/reservation_auth_helpers.dart';
+part 'auth/reservation_facade/watcher/r_watcher_facade.dart';
+part 'auth/reservation_facade/watcher/res_watcher_facade.dart';
+
+part 'auth/reservation_facade/updater/r_updater_facade.dart';
+part 'auth/reservation_facade/updater/res_updater_facade.dart';
+
+part 'auth/chat_facade/firebase_chat_core_config.dart';
+part 'auth/chat_facade/firebase_chat_facade.dart';
+part 'auth/chat_facade/util.dart';
+
+part 'auth/activity_facade/watcher/a_auth_watcher_facade.dart';
+part 'auth/activity_facade/watcher/activity_auth_watcher_facade.dart';
+
+part 'auth/locations_facade/updater/lo_auth_facade.dart';
+part 'auth/locations_facade/updater/location_auth_facade.dart';
+
+part 'auth/listing_facade/watcher/l_m_watcher_facade.dart';
+part 'auth/listing_facade/watcher/listing_manager_watcher_facade.dart';
+
+part 'auth/listing_facade/listing_auth_helpers.dart';
+part 'auth/listing_facade/updater/l_m_facade.dart';
+part 'auth/listing_facade/updater/listing_manager_facade.dart';
+
+part 'auth/facility_facade/watcher/f_auth_watcher_facade.dart';
+part 'auth/facility_facade/watcher/facility_auth_watcher_facade.dart';
+
+part 'auth/facility_facade/updater/f_auth_facade.dart';
+part 'auth/facility_facade/updater/facility_auth_facade.dart';
+
+part 'auth/activity_facade/updater/a_auth_facade.dart';
+part 'auth/activity_facade/updater/activity_auth_facade.dart';
+
+part 'auth/facility_facade/facility_auth_helpers.dart';
+
