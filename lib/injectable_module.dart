@@ -10,6 +10,10 @@ abstract class FirebaseInjectableModule {
   @lazySingleton
   FirebaseFunctions get firebaseFunctions => FirebaseFunctions.instance;
   @lazySingleton
+  FirebaseDynamicLinks get firebaseDynamicLinks => FirebaseDynamicLinks.instance;
+  @lazySingleton
+  FirebaseMessaging get firebaseMessaging => FirebaseMessaging.instance;
+  @lazySingleton
   GoogleSignIn get googleSignIn => GoogleSignIn(
     scopes: [
       'email',

@@ -4,7 +4,8 @@ abstract class LMWatcherFacade {
 
   /// watch listing item as listing manager
   Stream<Either<ListingFormFailure, ListingManagerForm>> watchListingManagerItem({required String listingId});
-  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchAllListingMangerItems({required String locationIdFilter});
+  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchAllListingMangerItems({required List<String>? listingIdFilterBy});
 
+  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchSearchedListingItems(List<String>? countriesFilter, String? city, String? stateProvince, bool? isVerified);
 
 }

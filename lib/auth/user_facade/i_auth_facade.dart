@@ -93,4 +93,8 @@ abstract class IAuthFacade {
 
   Stream<Either<AuthFailure, List<LocationModel>>> watchUserProfileLocations({required String userId});
   Stream<Either<AuthFailure, List<ProfileSession>>> watchUserProfileSessionList({required String userId});
+  Stream<Either<AuthFailure, List<UserProfileModel>>> searchAllUsersFromFirebase({
+    required String query
+  });
+  // Stream<List<UserProfileModel>> searchFirebaseUsersProfile({required String query});
 }

@@ -5,9 +5,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:check_in_domain/domain/auth/reservation_manager/post.dart';
+import 'package:check_in_domain/domain/auth/reservation_manager/post_dtos.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:check_in_credentials/check_in_credentials.dart';
+import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' as stripe;
@@ -28,7 +32,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 import 'check_in_facade.config.dart';
+import 'package:intl/intl.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
 
 
 part 'injection.dart';
@@ -87,3 +94,5 @@ part 'auth/activity_facade/updater/activity_auth_facade.dart';
 
 part 'auth/facility_facade/facility_auth_helpers.dart';
 
+part 'auth/map_facade/firebase_map_facade.dart';
+part 'auth/locations_facade/autocomplete_search_facade.dart';

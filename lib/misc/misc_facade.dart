@@ -3,32 +3,32 @@ part of check_in_facade;
 @LazySingleton(as: MMiscFacade)
 class MiscFacade implements MMiscFacade {
 
-  // final FirebaseFirestore _firestore;
-  Location _location = Location();
+  final FirebaseFirestore _firestore;
+  final Location _location = Location();
 
   MiscFacade(
-      // this._firestore
+      this._firestore
   );
 
   /// location services
   @override
   Stream<Either<PermissionStatus, LocationData>> getCurrentPosition() async* {
-    bool _serviceEnabled;
-    PermissionStatus _permission;
+    bool serviceEnabled;
+    PermissionStatus permission;
 
-    _permission = await _location.hasPermission();
-    _serviceEnabled = await _location.serviceEnabled();
+    permission = await _location.hasPermission();
+    serviceEnabled = await _location.serviceEnabled();
 
     try {
 
-      if (_permission == PermissionStatus.deniedForever) {
+      if (permission == PermissionStatus.deniedForever) {
         await _location.requestPermission();
-        yield left(_permission);
+        yield left(permission);
       }
 
-      if (!_serviceEnabled) {
+      if (!serviceEnabled) {
         await _location.requestService();
-        yield left(_permission);
+        yield left(permission);
       }
 
       final position = await _location.getLocation().then(
@@ -36,7 +36,7 @@ class MiscFacade implements MMiscFacade {
 
       yield right(position);
     } catch (e) {
-      yield left(_permission);
+      yield left(permission);
     }
 
   }
@@ -62,4 +62,5 @@ class MiscFacade implements MMiscFacade {
       yield left(AuthFailure.serverError());
     }
   }
+
 }

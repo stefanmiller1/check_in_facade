@@ -882,8 +882,66 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
     }
   }
 
+  @override
+  Stream<Either<AuthFailure, List<UserProfileModel>>> searchAllUsersFromFirebase({required String query}) async* {
+    try {
+
+      yield* _fireStore.collection('users').where('legalName', isGreaterThanOrEqualTo: query.toLowerCase()).where('legalSurname', isGreaterThanOrEqualTo: query.toLowerCase()).snapshots().map(
+              (event) {
+            if (event.docs.isNotEmpty) {
+              return right<AuthFailure, List<UserProfileModel>>(event.docs.map((user) => UserProfileItemDto.fromFireStore(user).toDomain()).toList());
+            }
+            return left(const AuthFailure.exceptionError('could not find anyone with that name'));
+          });
+
+      yield left(AuthFailure.serverError());
+    } catch (e) {
+      yield left(AuthFailure.serverError());
+    }
+  }
+
+  // @override
+  // Stream<List<UserProfileModel>> searchFirebaseUsersProfile({required String query}) async* {
+  //
+  //       yield* _fireStore.collection('users').where('legalName', isGreaterThanOrEqualTo: query.toLowerCase()).where('legalSurname', isGreaterThanOrEqualTo: query.toLowerCase()).snapshots().map(
+  //             (event) {
+  //               if (event.docs.isNotEmpty) {
+  //                 return (event.docs.map((user) => UserProfileItemDto.fromFireStore(user).toDomain()).toList());
+  //               }
+  //           return [];
+  //   });
+  // }
 
 }
+//
+// Stream<List<UserProfileModel>> searchFirebaseUsersProfile({required String query}) async* {
+//
+//   print(query);
+//   yield* FirebaseFirestore.instance.collection('users').where('legalSurname', isGreaterThanOrEqualTo: query).snapshots().map(
+//           (event) {
+//
+//       if (event.docs.isNotEmpty) {
+//         return (event.docs.map((user) {
+//           print('found');
+//           print(user.data()['legalName']);
+//           print(user.data()['legalSurname']);
+//           print(user.data()['emailAddress']);
+//           return UserProfileModel(
+//               userId: UniqueId.fromUniqueString(user.id),
+//               legalName: FirstLastName(user.data()['legalName'] ?? 'first'),
+//               legalSurname: FirstLastName(user.data()['legalSurname'] ?? 'first'),
+//               emailAddress: EmailAddress(
+//                   user.data()['emailAddress'] ?? 'email'),
+//               isEmailAuth: false,
+//               isPhoneAuth: false,
+//               joinedDate: DateTime.now()
+//           );
+//         }).toList());
+//       }
+//       return [];
+//    });
+//
+// }
 
 
 AuthFailure getErrorMessageFromFirebaseException(FirebaseAuthException e) {

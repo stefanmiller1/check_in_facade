@@ -1,9 +1,14 @@
 part of check_in_facade;
+
 /// watcher and updates that can be made without database authentication
 
 @injectable
 @LazySingleton(as: UAuthFacade)
 class UnAuthFacade implements UAuthFacade {
+
+  final FirebaseFirestore _firestore;
+
+  UnAuthFacade(this._firestore);
 
   @override
   Stream<Either<AuthFailure, int>> watchOwnersCurrentFacilityBookingsCount({
@@ -17,8 +22,6 @@ class UnAuthFacade implements UAuthFacade {
     } catch (e) {
       yield left(AuthFailure.serverError());
     }
-
-
   }
 
 
@@ -45,6 +48,8 @@ class UnAuthFacade implements UAuthFacade {
 
 
   }
+
+
 
 
 

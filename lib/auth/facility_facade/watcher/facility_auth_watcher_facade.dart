@@ -41,8 +41,6 @@ class FacilityWatcherFormFacade implements FAuthWatcherFacade {
           .doc(currentUser)
           .collection('facility_form').snapshots().map((event) {
 
-      print(event.docs.map((e) => e.data()));
-
       if (event.docs.isNotEmpty) {
         return right<FacilityFormFailure, List<FacilityCreatorForm>>(event.docs.map((form) =>
             FacilityCreatorFormDto.fromFirestore(form).toDomain()).toList());

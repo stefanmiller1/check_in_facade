@@ -81,7 +81,6 @@ class StripeFacade implements SStripeFacade {
 
         try {
 
-          print(responseData.data['ephemeralKey']);
           await stripe.Stripe.instance.initPaymentSheet(
               paymentSheetParameters: stripe.SetupPaymentSheetParameters(
                 applePay: stripe.PaymentSheetApplePay(

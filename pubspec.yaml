@@ -19,13 +19,18 @@ dependencies:
   firebase_auth: ^4.1.2
   firebase_core: ^2.2.0
   firebase_storage: ^11.0.3
-  firebase_dynamic_links: ^5.0.4
-  flutter_stripe: ^7.0.0
+  firebase_dynamic_links: ^5.0.17
+  firebase_messaging: ^14.3.0
+  flutter_stripe: ^4.0.0
   cloud_firestore: ^4.0.4
   cloud_functions: ^4.0.3
   flutter_firebase_chat_core: ^1.6.4
   google_sign_in: ^5.4.2
   sign_in_with_apple: ^4.3.0
+  flutter_local_notifications: ^13.0.0
+  uuid: ^3.0.4
+  geoflutterfire:
+    git: https://github.com/stefanmiller1/GeoFlutterFire
   crypto: ^3.0.2
   url_launcher: ^6.0.2
   check_in_domain:

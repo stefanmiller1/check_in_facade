@@ -2,8 +2,12 @@ part of check_in_facade;
 
 extension ReservationFireStoreX on FirebaseFirestore {
 
-  Future<DocumentReference> reservationDocument(String listingId) async {
-    return FirebaseFirestore.instance.collection('reservation_directory').doc(listingId);
+  Future<DocumentReference> reservationDocument(String reservationId) async {
+    return FirebaseFirestore.instance.collection('reservation_directory').doc(reservationId);
+  }
+
+  Future<DocumentReference> reservationPostDocument(String postId) async {
+    return FirebaseFirestore.instance.collection('reservation_post').doc(postId);
   }
 
 }

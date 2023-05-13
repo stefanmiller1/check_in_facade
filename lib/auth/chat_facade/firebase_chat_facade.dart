@@ -27,9 +27,7 @@ class FirebaseChatCore {
 
   /// Gets proper [FirebaseFirestore] instance.
   FirebaseFirestore getFirebaseFirestore() => config.firebaseAppName != null
-      ? FirebaseFirestore.instanceFor(
-    app: Firebase.app(config.firebaseAppName!),
-  )
+      ? FirebaseFirestore.instanceFor(app: Firebase.app(config.firebaseAppName!))
       : FirebaseFirestore.instance;
 
   /// Sets custom config to change default names for rooms
@@ -92,12 +90,15 @@ class FirebaseChatCore {
   /// Creates a direct chat for 2 people. Add [metadata] for any additional
   /// custom data.
   Future<Either<ReservationFormFailure, Unit>> createRoom(
-        String otherUserId, {
+        String roomId,
+        String otherUserId,
+        String roomName,
+        {
         Map<String, dynamic>? metadata,
       }) async {
     final fu = firebaseUser;
 
-    if (fu == null) return left(ReservationFormFailure.chatRoomCreateError());
+    if (fu == null) return left(const ReservationFormFailure.chatRoomCreateError());
 
     // Sort two user ids array to always have the same array for both users,
     // this will make it easy to find the room if exist and make one read only.
@@ -106,14 +107,13 @@ class FirebaseChatCore {
     // Create new room with sorted user ids array.
     try {
 
-
       await getFirebaseFirestore()
-          .collection(config.roomsCollectionName)
-          .add({
+          .collection(config.roomsCollectionName).doc(roomId).set({
+        'isArchive': false,
         'createdAt': FieldValue.serverTimestamp(),
         'imageUrl': null,
         'metadata': metadata,
-        'name': null,
+        'name': roomName,
         'type': types.RoomType.direct.toShortString(),
         'updatedAt': FieldValue.serverTimestamp(),
         'userIds': userIds,
@@ -124,8 +124,7 @@ class FirebaseChatCore {
     } on FirebaseAuthException catch (e) {
       return left(ReservationFormFailure.firebaseError(failed: e.message));
     } catch (e) {
-      print(e);
-      return left(ReservationFormFailure.reservationServerError());
+      return left(const ReservationFormFailure.reservationServerError());
     }
   }
 
@@ -255,7 +254,7 @@ class FirebaseChatCore {
   /// 3) Create an Index (Firestore Database -> Indexes tab) where collection ID
   /// is `rooms`, field indexed are `userIds` (type Arrays) and `updatedAt`
   /// (type Descending), query scope is `Collection`
-  Stream<List<types.Room>> rooms({bool orderByUpdatedAt = false}) {
+  Stream<List<types.Room>> rooms({bool orderByUpdatedAt = false, required bool isArchived}) {
     final fu = firebaseUser;
 
     if (fu == null) return const Stream.empty();
@@ -264,20 +263,48 @@ class FirebaseChatCore {
         ? getFirebaseFirestore()
         .collection(config.roomsCollectionName)
         .where('userIds', arrayContains: fu.uid)
+        .where('isArchive', isEqualTo: isArchived)
         .orderBy('updatedAt', descending: true)
         : getFirebaseFirestore()
         .collection(config.roomsCollectionName)
-        .where('userIds', arrayContains: fu.uid);
+        .where('userIds', arrayContains: fu.uid)
+        .where('isArchive', isEqualTo: isArchived);
+
 
     return collection.snapshots().asyncMap(
-          (query) => processRoomsQuery(
+          (query) {
+
+      return processRoomsQuery(
         fu,
         getFirebaseFirestore(),
         query,
         config.usersCollectionName,
-      ),
+        );
+      }
     );
   }
+
+  Stream<List<types.Room>> roomsFromReservation({required String reservationId}) {
+    final fu = firebaseUser;
+
+    if (fu == null) return const Stream.empty();
+
+    final collection = getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .where('userIds', arrayContains: fu.uid)
+        .where('metadata.reservationId', isEqualTo: reservationId);
+
+    return collection.snapshots().asyncMap((query) {
+      return processRoomsQuery(
+      fu,
+      getFirebaseFirestore(),
+      query,
+      config.usersCollectionName,
+        );
+      }
+    );
+  }
+
 
   /// Sends a message to the Firestore. Accepts any partial message and a
   /// room ID. If arbitraty data is provided in the [partialMessage]
@@ -311,6 +338,12 @@ class FirebaseChatCore {
         id: '',
         partialText: partialMessage,
       );
+    } else if (partialMessage is types.SystemMessage) {
+      message = types.SystemMessage(
+        author: types.User(id: firebaseUser!.uid),
+        text: partialMessage.text,
+        id: '',
+      );
     }
 
     if (message != null) {
@@ -324,6 +357,7 @@ class FirebaseChatCore {
           .collection('${config.roomsCollectionName}/$roomId/messages')
           .add(messageMap);
 
+
       await getFirebaseFirestore()
           .collection(config.roomsCollectionName)
           .doc(roomId)
@@ -335,7 +369,7 @@ class FirebaseChatCore {
   /// room ID. Message will probably be taken from the [messages] stream.
   void updateMessage(types.Message message, String roomId) async {
     if (firebaseUser == null) return;
-    if (message.author.id != firebaseUser!.uid) return;
+    // if (message.author.id != firebaseUser!.uid) return;
 
     final messageMap = message.toJson();
     messageMap.removeWhere(
@@ -412,5 +446,39 @@ class FirebaseChatCore {
         },
       ),
     );
+  }
+
+
+
+  /// send notification to everyone in room
+  void sendDirectNotifications(List<String>  userIds, types.PartialText textMessage) async  {
+  if (firebaseUser == null) return;
+
+
+      for (String userId in userIds) {
+        final userInfo = await getFirebaseFirestore().collection(config.usersCollectionName).doc(userId).get();
+
+
+          if (userInfo.data().toString().contains('token') && userInfo['token'] != null) {
+            final userToken = userInfo['token'];
+            await http.post(
+                Uri.parse('https://fcm.googleapis.com/fcm/send'),
+                headers: <String, String>{
+                  'Content-Type': 'application/json',
+                  'Authorization': 'key=$CMF_SERVER_KEY',
+                },
+                body: jsonEncode(
+                    <String, dynamic>{
+                      'priority': 'high',
+                      'notification': {
+                        'title': '${firebaseUser?.displayName ?? 'Someone'} Sent you a message',
+                        'body': textMessage.text,
+                      },
+                      'to': userToken,
+                    }
+                )
+            );
+          }
+    }
   }
 }
