@@ -8,6 +8,8 @@ abstract class FirebaseInjectableModule {
   @lazySingleton
   FirebaseFirestore get fireStore => FirebaseFirestore.instance;
   @lazySingleton
+  FirebaseStorage get firebaseStorage => FirebaseStorage.instance;
+  @lazySingleton
   FirebaseFunctions get firebaseFunctions => FirebaseFunctions.instance;
   @lazySingleton
   FirebaseDynamicLinks get firebaseDynamicLinks => FirebaseDynamicLinks.instance;

@@ -886,19 +886,34 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
   Stream<Either<AuthFailure, List<UserProfileModel>>> searchAllUsersFromFirebase({required String query}) async* {
     try {
 
-      yield* _fireStore.collection('users').where('legalName', isGreaterThanOrEqualTo: query.toLowerCase()).where('legalSurname', isGreaterThanOrEqualTo: query.toLowerCase()).snapshots().map(
+      late Query<Map<String, dynamic>>? fbQuery;
+
+
+      if (query.contains('@')) {
+        fbQuery = _fireStore.collection('users').where('emailAddress', isEqualTo: query);
+      }
+
+      if (!query.contains('@')) {
+        fbQuery = _fireStore.collection('users').where('legalName', isEqualTo: query);
+      }
+
+
+      if (fbQuery != null) {
+       yield* fbQuery.snapshots().map(
               (event) {
             if (event.docs.isNotEmpty) {
               return right<AuthFailure, List<UserProfileModel>>(event.docs.map((user) => UserProfileItemDto.fromFireStore(user).toDomain()).toList());
             }
             return left(const AuthFailure.exceptionError('could not find anyone with that name'));
           });
-
+      }
       yield left(AuthFailure.serverError());
     } catch (e) {
       yield left(AuthFailure.serverError());
     }
   }
+
+
 
   // @override
   // Stream<List<UserProfileModel>> searchFirebaseUsersProfile({required String query}) async* {

@@ -33,9 +33,6 @@ class FirebaseMapFacade {
     final fu = firebaseUser;
     if (fu == null) return const Stream.empty();
 
-    print('thhtrdhrd');
-    print(latitude);
-    print(longitude);
 
     final geo = Geoflutterfire();
     var radius = selectedRadius ?? 50 * 1000;

@@ -5,8 +5,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/attendee_item.dart';
+import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/attendee_item_dtos.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post_dtos.dart';
+import 'package:check_in_domain/domain/misc/attendee_services/value_object.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:check_in_credentials/check_in_credentials.dart';
@@ -72,6 +75,12 @@ part 'auth/chat_facade/util.dart';
 
 part 'auth/activity_facade/watcher/a_auth_watcher_facade.dart';
 part 'auth/activity_facade/watcher/activity_auth_watcher_facade.dart';
+
+part 'auth/attendee_facade/updater/att_auth_facade.dart';
+part 'auth/attendee_facade/updater/attendee_auth_facade.dart';
+
+part 'auth/attendee_facade/watcher/att_auth_watcher_facade.dart';
+part 'auth/attendee_facade/watcher/attendee_auth_watcher_facade.dart';
 
 part 'auth/locations_facade/updater/lo_auth_facade.dart';
 part 'auth/locations_facade/updater/location_auth_facade.dart';

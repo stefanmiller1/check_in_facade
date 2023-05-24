@@ -26,17 +26,15 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
 
 
   @override
-  Stream<Either<ActivityFormFailure, ActivityCreatorForm>> watchActivityCreatorForm({required String activityId}) async* {
+  Stream<Either<ActivityFormFailure, ActivityManagerForm>> watchActivityCreatorForm({required String activityId}) async* {
     try {
 
       yield* _fireStore
           .collection('activity_directory')
           .doc(activityId)
-          .activityFormDocument
-          .doc(activityId)
           .snapshots().map((snapshot) {
             if (snapshot.exists) {
-              return right(ActivityCreatorFormDto.fromFireStore(snapshot).toDomain());
+              return right(ActivityManagerFormDto.fromFireStore(snapshot).toDomain());
             }
           return left(const ActivityFormFailure.activityNotFound());
        });
@@ -49,7 +47,7 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
   }
 
   @override
-  Stream<Either<ActivityFormFailure, List<ActivityCreatorForm>>> watchAllActivityCreatorForms({required bool isReservation, required String? reservationId}) async* {
+  Stream<Either<ActivityFormFailure, List<ActivityManagerForm>>> watchAllActivityCreatorForms({required bool isReservation, required String? reservationId}) async* {
     try {
       if (_firebaseAuth.currentUser == null ) yield left(const ActivityFormFailure.activityServerError());
 
@@ -58,8 +56,8 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
             .where('activityReservation', arrayContains: reservationId)
             .snapshots().map((event) {
               if (event.docs.isNotEmpty) {
-                return right<ActivityFormFailure, List<ActivityCreatorForm>>(event.docs.map((form) =>
-                    ActivityCreatorFormDto.fromFireStore(form).toDomain()).toList());
+                return right<ActivityFormFailure, List<ActivityManagerForm>>(event.docs.map((form) =>
+                    ActivityManagerFormDto.fromFireStore(form).toDomain()).toList());
               }
               return left(const ActivityFormFailure.activityServerError());
           }
@@ -70,8 +68,8 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
             .where('activityOwner', isEqualTo: _firebaseAuth.currentUser!.uid)
             .snapshots().map((event) {
               if (event.docs.isNotEmpty) {
-                return right<ActivityFormFailure, List<ActivityCreatorForm>>(event.docs.map((form) =>
-                    ActivityCreatorFormDto.fromFireStore(form).toDomain()).toList());
+                return right<ActivityFormFailure, List<ActivityManagerForm>>(event.docs.map((form) =>
+                    ActivityManagerFormDto.fromFireStore(form).toDomain()).toList());
               }
           return left(const ActivityFormFailure.activityServerError());
         });
@@ -83,5 +81,44 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
     }
   }
 
+
+}
+
+
+class ActivitySettingsFacade {
+
+  ActivitySettingsFacade._privateConstructor() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      firebaseUser = user;
+    });
+  }
+
+  /// Current logged in user in Firebase. Does not update automatically.
+  /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
+  User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+  /// Gets proper [FirebaseFirestore] instance.
+  FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
+
+  /// Singleton instance.
+  static final ActivitySettingsFacade instance = ActivitySettingsFacade._privateConstructor();
+
+  Future<ActivityManagerForm> getActivitySettings({
+    required String reservationId
+}) async {
+    if (firebaseUser == null) return Future.error('User does not exist');
+
+    final activitySettings = await getFirebaseFirestore()
+        .collection('activity_directory')
+        .doc(reservationId).get();
+
+    if (!(activitySettings.exists) || activitySettings.data() == null) return Future.error('no activity found');
+      return processActivityForm(activitySettings);
+  }
+
+
+  ActivityManagerForm processActivityForm(DocumentSnapshot<Map<String, dynamic>> query) {
+    return ActivityManagerFormDto.fromJson(query.data()!).toDomain();
+  }
 
 }
