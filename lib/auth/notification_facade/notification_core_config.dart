@@ -43,9 +43,7 @@ class LocalNotificationCore {
 
     _notificationsPlugin.initialize(initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse notificationResponse) {
-        print(notificationResponse);
         // switch (notificationResponse.notificationResponseType) {
-        //
         //   case NotificationResponseType.selectedNotification:
         //     // TODO: Handle this case.
         //     break;

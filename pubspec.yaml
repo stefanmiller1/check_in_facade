@@ -21,7 +21,7 @@ dependencies:
   firebase_storage: ^11.0.3
   firebase_dynamic_links: ^5.0.17
   firebase_messaging: ^14.3.0
-  flutter_stripe: ^4.0.0
+  flutter_stripe: ^7.0.0
   cloud_firestore: ^4.0.4
   cloud_functions: ^4.0.3
   flutter_firebase_chat_core: ^1.6.4

@@ -9,7 +9,6 @@ import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/atte
 import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/attendee_item_dtos.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post_dtos.dart';
-import 'package:check_in_domain/domain/misc/attendee_services/value_object.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:check_in_credentials/check_in_credentials.dart';
