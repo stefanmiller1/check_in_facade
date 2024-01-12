@@ -1,6 +1,8 @@
+import 'package:check_in_credentials/check_in_credentials.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -104,7 +106,11 @@ class LocalNotificationCore {
       final userId = FirebaseAuth.instance.currentUser?.uid;
 
       if (FirebaseAuth.instance.currentUser != null) {
-        await FirebaseFirestore.instance.collection('users').doc(userId).update({'token': _token});
+        if (kIsWeb) {
+          await FirebaseFirestore.instance.collection('users').doc(userId).update({'webToken': _token});
+        } else {
+          await FirebaseFirestore.instance.collection('users').doc(userId).update({'token': _token});
+        }
       }
 
       /// create Android Notification Channel.

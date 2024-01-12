@@ -57,26 +57,42 @@ class ListingManagerWatcherFacade implements LMWatcherFacade {
   }
 
   @override
-  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchSearchedListingItems(List<String>? countriesFilter, String? city, String? stateProvince, bool? isVerified) async* {
+  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchSearchedListingItems(List<ManagerListingStatusType> status, String? country, String? city, bool? isVerified) async* {
     try {
 
-      final listingRef = _fireStore.collection('listing_directory');
-      if (countriesFilter?.isNotEmpty ?? false) listingRef.where('listingProfileService.backgroundInfoServices.listingLocationSetting.countryRegion', whereIn: countriesFilter);
-      if (city != null) listingRef.where('listingProfileService.backgroundInfoServices.listingLocationSetting.city', isEqualTo: countriesFilter);
-      if (stateProvince != null) listingRef.where('listingProfileService.backgroundInfoServices.listingLocationSetting.provinceState', isEqualTo: stateProvince);
+      var listingRef = _fireStore.collection('listing_directory')
+          .where('listingProfileService.backgroundInfoServices.listingStatus', whereIn: status.map((e) => e.toString()).toList());
+
+      // retrieve only verified locations
+      if (isVerified == true) {
+        listingRef = listingRef.where('listingProfileService.listingLocationSetting.isVerified', isEqualTo: true);
+      }
+
+      if (country != null && country != '') {
+        listingRef = listingRef.where('listingProfileService.listingLocationSetting.countryRegion', isEqualTo: country);
+      }
+
+      if (city != null && city != '') {
+        listingRef = listingRef.where('listingProfileService.listingLocationSetting.city', isEqualTo: city);
+      }
+
+      /// implement an order by - based on review
+      /// number of reservations booked
 
       yield* listingRef.snapshots()
-          .map((event) {
-        if (event.docs.isNotEmpty) {
-          return right<ListingFormFailure, List<ListingManagerForm>>(event.docs.map((listing) => ListingManagerFormDto.fromFireStore(listing).toDomain()).toList());
-        } else {
-          return left(ListingFormFailure.listingsNotFound());
+            .map((event) {
+              print('SNOAIWND');
+              print(event.docs.isNotEmpty);
+          if (event.docs.isNotEmpty) {
+            return right<ListingFormFailure, List<ListingManagerForm>>(event.docs.map((listing) => ListingManagerFormDto.fromFireStore(listing).toDomain()).toList());
+          } else {
+            return left(ListingFormFailure.listingsNotFound());
+          }
         }
-      }
       );
 
 
-      yield left(ListingFormFailure.listingServerError());
+        yield left(ListingFormFailure.listingServerError());
     } catch (e) {
       yield left(ListingFormFailure.listingServerError(failed: e.toString()));
     }

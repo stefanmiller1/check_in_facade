@@ -13,14 +13,19 @@ class StripeFacade implements SStripeFacade {
   @override
   Future<Either<PaymentMethodValueFailure, StringStringItems>> processAndConfirmPaymentAsDirectCharge({
   required UserProfileModel userProfile,
-  required ReservationItem reservationItem,
+  required UniqueId reservationId,
+  required UniqueId listingId,
+  required String? listingOwnerStripeId,
   required String amount,
   required String currency,
   required String? paymentMethod,
+  required String? description,
   })  async {
 
     late String? customerId;
-    final numberOnlyAmount = amount.split('.').join("");
+    final String numberOnlyAmount = amount.split('.').join("");
+
+
     customerId = userProfile.stripeCustomerId;
     /// create new customer
     final customerFunctionRef = _firebaseFunctions.httpsCallable('create_new_customer_stripe_account');
@@ -30,6 +35,9 @@ class StripeFacade implements SStripeFacade {
 
     try {
 
+      if (listingOwnerStripeId == null) {
+        return left(const PaymentMethodValueFailure.ownerDoesNotHaveAccount());
+      }
 
       /// 1. Create Customer if not one already
       if (customerId == null) {
@@ -48,15 +56,16 @@ class StripeFacade implements SStripeFacade {
       /// 2. Call API to create paymentIntent with paymentMethod id, Customer id and Reservation details
       final responseData = await functionRef.call(<String, dynamic>{
         'paymentMethod': paymentMethod,
-        'listingStripeAccount': 'acct_1Lfkm4BRv4KcJPVD',
-        'reservationId' : reservationItem.reservationId.getOrCrash(),
-        'listingId': reservationItem.instanceId.getOrCrash(),
+        'listingStripeAccount': listingOwnerStripeId,
+        'reservationId' : reservationId.getOrCrash(),
+        'listingId': listingId.getOrCrash(),
         'customerId': customerId,
         'holderEmail': userProfile.emailAddress.getOrCrash(),
         'amount': int.parse(numberOnlyAmount).toInt(),
         'fee': (int.parse(numberOnlyAmount) * CICOReservationPercentageFee).toInt(),
-        'currency': currency,
+        'currency': NumberFormat.simpleCurrency(locale: currency).currencyName?.toLowerCase(),
         'name': userProfile.legalName.value.fold((l) => '', (r) => r),
+        'description': description
         }
       );
 
@@ -78,15 +87,13 @@ class StripeFacade implements SStripeFacade {
 
 
       if (!(kIsWeb)) {
-
         try {
-
           await stripe.Stripe.instance.initPaymentSheet(
               paymentSheetParameters: stripe.SetupPaymentSheetParameters(
                 applePay: stripe.PaymentSheetApplePay(
-                  merchantCountryCode: currency
+                    merchantCountryCode: currency
                 ),
-                merchantDisplayName: 'CICO Check Out',
+                merchantDisplayName: 'CICO',
                 paymentIntentClientSecret: responseData.data['clientSecret'],
                 customerEphemeralKeySecret: responseData.data['ephemeralKey'],
                 customerId: customerId,
@@ -98,7 +105,12 @@ class StripeFacade implements SStripeFacade {
           );
 
           await stripe.Stripe.instance.presentPaymentSheet();
+
+        } on stripe.StripeException catch (e) {
+          print('I DONT WORKKK!!');
+          return left(PaymentMethodValueFailure.paymentServerError(failedValue: e.error.message ?? 'error'));
         } catch (e) {
+          print('I DONT WORKKK!!');
           return left(PaymentMethodValueFailure.paymentServerError(failedValue: e.toString()));
         }
       }
@@ -108,10 +120,11 @@ class StripeFacade implements SStripeFacade {
         stringItemOne: responseData.data['clientSecret'],
         stringItemTwo: responseData.data['paymentIntent']
       ));
+    } on stripe.StripeException catch (e) {
+      return left(PaymentMethodValueFailure.paymentServerError(failedValue: e.toString()));
     } catch (e) {
       return left(PaymentMethodValueFailure.paymentServerError(failedValue: e.toString()));
     }
-
   }
 
   @override
@@ -307,8 +320,6 @@ class StripeFacade implements SStripeFacade {
     } catch (e) {
       return left(PaymentMethodValueFailure.paymentServerError(failedValue: e.toString()));
     }
-
   }
-
-
 }
+

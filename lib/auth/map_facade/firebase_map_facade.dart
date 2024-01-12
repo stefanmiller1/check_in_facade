@@ -30,9 +30,9 @@ class FirebaseMapFacade {
     String? selectedCountry,
 }) {
 
-    final fu = firebaseUser;
-    if (fu == null) return const Stream.empty();
 
+    // final fu = firebaseUser;
+    // if (fu == null) return const Stream.empty();
 
     final geo = Geoflutterfire();
     var radius = selectedRadius ?? 50 * 1000;
@@ -43,6 +43,8 @@ class FirebaseMapFacade {
     // if (selectedActivityType != null) {
     //   collectionRef.where('listingProfileService.spaceSetting.activitiesAllowed', arrayContains: [selectedActivityType]);
     // }
+
+    collectionRef.where('listingProfileService.listingLocationSetting.isVerified', isEqualTo: true);
 
     // /// filter by city, region or country.
     if (selectedCityRegion != null) {

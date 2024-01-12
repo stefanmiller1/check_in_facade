@@ -74,6 +74,8 @@ part 'auth/chat_facade/util.dart';
 
 part 'auth/activity_facade/watcher/a_auth_watcher_facade.dart';
 part 'auth/activity_facade/watcher/activity_auth_watcher_facade.dart';
+part 'auth/activity_facade/ticket_facade/watcher/t_watcher_facade.dart';
+part 'auth/activity_facade/ticket_facade/watcher/ticket_watcher_facade.dart';
 
 part 'auth/attendee_facade/updater/att_auth_facade.dart';
 part 'auth/attendee_facade/updater/attendee_auth_facade.dart';

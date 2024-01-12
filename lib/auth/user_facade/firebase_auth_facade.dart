@@ -779,8 +779,6 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
               (event) => (event.docs.isNotEmpty) ?
               right<AuthFailure, List<UserProfileModel>>(event.docs.map((profile) {
                 if (profile.data().containsKey('gender')) {
-                  print('found gender');
-
                   return UserProfileItemDto.fromFireStore(profile).toDomain();
                 } else {
                   return UserProfileModel.empty();

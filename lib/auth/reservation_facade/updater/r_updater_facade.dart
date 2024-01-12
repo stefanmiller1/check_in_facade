@@ -58,15 +58,22 @@ abstract class RUpdaterFacade {
 });
 
   /// send invitation to selected list
-  Future<Either<AuthFailure, Unit>> sendInvitationToUsers({
+  Future<Either<AttendeeFormFailure, Unit>> sendInvitationToUsers({
     required String reservationId,
-    required List<ContactDetails> invitations
+    required ActivityManagerForm activityForm,
+    required List<AttendeeItem> invitations
 });
 
-  /// join reservation from invite
-  Future<Either<ReservationFormFailure, Unit>> updateReservationAffiliatesList({
-    required String reservationId,
-    required List<ContactDetails> updatedAffiliatesList
+  /// remove invited attendee
+  Future<Either<AttendeeFormFailure, Unit>> removeSelectedAttendee({
+   required String reservationId,
+   required String attendeeId,
 });
+
+//   /// join reservation from invite
+//   Future<Either<ReservationFormFailure, Unit>> updateReservationAffiliatesList({
+//     required String reservationId,
+//     required List<ContactDetails> updatedAffiliatesList
+// });
 
 }

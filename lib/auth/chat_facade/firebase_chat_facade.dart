@@ -170,6 +170,7 @@ class FirebaseChatCore {
         .delete();
   }
 
+
   /// Returns a stream of messages from Firebase for a given room.
   Stream<List<types.Message>> messages(
       types.Room room, {

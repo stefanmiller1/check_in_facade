@@ -58,10 +58,6 @@ class ActivityFormFacade implements AAuthFacade {
       );
 
 
-      print('facade');
-      print(activityForm.activityAttendance);
-
-
       final activityDoc = await _fireStore.activityDocument(activityResId.getOrCrash());
       final activityFormDto = ActivityManagerFormDto.fromDomain(activity).toJson();
       await activityDoc.set(activityFormDto);

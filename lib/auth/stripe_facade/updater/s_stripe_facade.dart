@@ -15,10 +15,13 @@ abstract class SStripeFacade {
   /// create new stripe payment
   Future<Either<PaymentMethodValueFailure, StringStringItems>> processAndConfirmPaymentAsDirectCharge({
     required UserProfileModel userProfile,
-    required ReservationItem reservationItem,
+    required UniqueId reservationId,
+    required UniqueId listingId,
+    required String? listingOwnerStripeId,
     required String amount,
     required String currency,
     required String? paymentMethod,
+    required String? description,
   });
 
   /// confirm Stripe payment intent

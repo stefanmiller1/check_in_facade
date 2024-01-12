@@ -7,6 +7,7 @@ class ResUpdaterFacade implements RUpdaterFacade {
   final FirebaseAuth _firebaseAuth;
   final FirebaseDynamicLinks _dynamicLinks;
   final FirebaseMessaging _firebaseMessaging;
+  final ATTAuthFacade _attendeeFormFacade;
   final FirebaseFunctions _firebaseFunctions;
 
   ResUpdaterFacade(
@@ -14,7 +15,8 @@ class ResUpdaterFacade implements RUpdaterFacade {
       this._firebaseAuth,
       this._dynamicLinks,
       this._firebaseMessaging,
-      this._firebaseFunctions
+      this._firebaseFunctions,
+      this._attendeeFormFacade
     );
 
   @override
@@ -45,7 +47,7 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
       final completeReservationFormItem = ReservationItem(
           reservationId: reservationForm.reservationId,
-          reservationOwnerId: reservationForm.reservationOwnerId,
+          reservationOwnerId: UniqueId.fromUniqueString(currentUserId.uid),
           instanceId: reservationForm.instanceId,
           reservationCost: reservationForm.reservationCost,
           paymentStatus: reservationForm.paymentStatus,
@@ -63,7 +65,7 @@ class ResUpdaterFacade implements RUpdaterFacade {
       final reservationItemDto = ReservationItemDto.fromDomain(completeReservationFormItem).toJson();
       reservationDoc.set(reservationItemDto);
 
-      /// add to reservation holder profile
+      /// add to reservation holder profile...prob can get rid of this....
       final userProfileSessionDto = ProfileSessionDto.fromDomain(userProfileSession).toJson();
       await userDoc.sessionDocument.doc(reservationId).set(userProfileSessionDto);
 
@@ -81,6 +83,7 @@ class ResUpdaterFacade implements RUpdaterFacade {
           });
 
 
+      if (!(kIsWeb)) {
         /// create reservation subscription
         await _firebaseMessaging.subscribeToTopic(reservationId);
         // await _firebaseMessaging.un
@@ -104,9 +107,12 @@ class ResUpdaterFacade implements RUpdaterFacade {
                     'body': 'Someone has booked a new Reservation with you!',
                   },
                   'topic': reservationForm.instanceId.getOrCrash(),
-                }
-            )
+            }
+          )
         );
+      } else {
+
+      }
       // final sendSystemMessage = types.SystemMessage(
       //     id: '',
       //     text: 'Reservation Starts on ${DateFormat.yMMMd().format(resSorted.first.selectedDate)} at ${listing.listingProfileService.backgroundInfoServices.listingName.getOrCrash()} be ready to join!');
@@ -116,7 +122,7 @@ class ResUpdaterFacade implements RUpdaterFacade {
     } on FirebaseAuthException catch (e) {
       return left(ReservationFormFailure.firebaseError(failed: e.message));
     } catch (e) {
-      return left(const ReservationFormFailure.reservationServerError());
+      return left(ReservationFormFailure.reservationServerError(failed: e.toString()));
     }
   }
 
@@ -300,7 +306,7 @@ class ResUpdaterFacade implements RUpdaterFacade {
   Future<Either<ReservationFormFailure, Unit>> likeReservationPost({required Post reservationPost}) async {
     try {
 
-      final reservationPostDto = {'postLikes': reservationPost.postLikes?.map((e) => StringItemDto.fromDomain(e.getOrCrash()).toJson()).toList()};
+      final reservationPostDto = {'postLikes': reservationPost.postLikes?.map((e) => StringItemDto.fromDomain(e.getOrCrash()).toJson()).toList(), 'likeCount': reservationPost.postLikes?.length};
       final resPostDoc = await _fireStore.reservationPostDocument(reservationPost.id);
 
       resPostDoc.update(reservationPostDto);
@@ -353,85 +359,77 @@ class ResUpdaterFacade implements RUpdaterFacade {
     }
   }
 
+
   @override
-  Future<Either<AuthFailure, Unit>> sendInvitationToUsers({required String reservationId, required List<ContactDetails> invitations}) async {
+  Future<Either<AttendeeFormFailure, Unit>> sendInvitationToUsers({required String reservationId, required ActivityManagerForm activityForm, required List<AttendeeItem> invitations}) async {
 
     try {
 
-      final reservationDoc = await _fireStore.collection('reservation_directory').doc(reservationId).get();
-      final reservationItem = (reservationDoc.data() != null) ? ReservationItemDto.fromFireStore(reservationDoc.data()!).toDomain() : null;
+      for (AttendeeItem attendee in invitations) {
+        final attendeeFacade = await _attendeeFormFacade.createNewAttendee(attendeeItem: attendee, activityForm: activityForm, paymentIntentId: null);
 
-      /// update invited list with new list of all invited contacts
-      final contactList = invitations.map((e) => ContactDetailsDto.fromDomain(e).toJson()).toList();
-      final contactIds = invitations.map((e) => StringItemDto.fromDomain(e.contactId.getOrCrash()).toJson()).toList();
-      final resPostDoc = await _fireStore.reservationDocument(reservationId);
-      resPostDoc.update({
-        'reservationAffiliates' : contactList});
-      resPostDoc.update({
-        'affiliateIds' : contactIds
-      });
+        if (attendeeFacade.isLeft()) {
+          return left(const AttendeeFormFailure.attendeeServerError(failed: 'error creating attendee'));
+        }
+      }
 
 
       /// send notifications to all invited contacts if contacts have yet to be invited.
-      for (ContactDetails userId in invitations.toList()) {
+      for (AttendeeItem userId in invitations) {
 
-        final userInfo = await _fireStore.collection('users').doc(userId.contactId.getOrCrash()).get();
+        final userInfo = await _fireStore.collection('users').doc(userId.attendeeOwnerId.getOrCrash()).get();
 
-        if (!(reservationItem?.reservationAffiliates?.map((e) => e.contactId).contains(userId.contactId) ?? false)) {
-            /// make an invitation request...if not already an added contact
-
-            if (userInfo.data().toString().contains('token')) {
-              final userToken = userInfo['token'];
-              await http.post(
-                  Uri.parse('https://fcm.googleapis.com/fcm/send'),
-                  headers: <String, String>{
-                    'Content-Type': 'application/json',
-                    'Authorization': 'key=$CMF_SERVER_KEY',
-                  },
-                  body: jsonEncode(
-                      <String, dynamic>{
-                        'priority': 'high',
-                        'data': <String, dynamic>{
-                          'reservationId': reservationId,
-                          'status': 'done',
-                        },
-                        'notification': {
-                          'title': 'New Invitation!',
-                          'body': 'You\'ve been invited to Join a new Reservation!',
-                        },
-                    'to': userToken,
-                  }
-                )
-              );
-            }
+            /// make an invitation request for new selected contacts
+          if (userInfo.data().toString().contains('token')) {
+            final userToken = userInfo['token'];
+            await http.post(
+                Uri.parse('https://fcm.googleapis.com/fcm/send'),
+                headers: <String, String>{
+                  'Content-Type': 'application/json',
+                  'Authorization': 'key=$CMF_SERVER_KEY',
+                },
+                body: jsonEncode(
+                    <String, dynamic>{
+                      'priority': 'high',
+                      'data': <String, dynamic>{
+                        'reservationId': reservationId,
+                        'status': 'done',
+                      },
+                      'notification': {
+                        'title': 'New Invitation!',
+                        'body': 'You\'ve been invited to Join a new Reservation!',
+                      },
+                  'to': userToken,
+                }
+              )
+            );
           }
         }
 
       return right(unit);
     } catch (e) {
-      print(e);
-      return left(AuthFailure.serverError());
+      return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }
   }
 
   @override
-  Future<Either<ReservationFormFailure, Unit>> updateReservationAffiliatesList({required String reservationId, required List<ContactDetails> updatedAffiliatesList}) async {
+  Future<Either<AttendeeFormFailure, Unit>> removeSelectedAttendee({required String reservationId, required String attendeeId}) async {
 
     try {
 
-      final resContactIdDto = {'affiliateIds' : updatedAffiliatesList.map((e) => StringItemDto.fromDomain(e.contactId.getOrCrash()).toJson()).toList() };
-      final reservationAffiliatesDto = {'reservationAffiliates' : updatedAffiliatesList.map((e) => ContactDetailsDto.fromDomain(e).toJson()).toList() };
+      final activityDoc = await _fireStore.activityDocument(reservationId);
+      final attendeeDoc = activityDoc.collection('attendees').doc(attendeeId);
+      final attendeeProfileDoc = _fireStore.collection('users').doc(attendeeId);
+      final profileAttReservations = attendeeProfileDoc.collection('attending').doc(reservationId);
 
-      final resPostDoc = await _fireStore.reservationDocument(reservationId);
-
-      resPostDoc.update(reservationAffiliatesDto);
-      resPostDoc.update(resContactIdDto);
-
+        attendeeDoc.delete();
+        profileAttReservations.delete();
       return right(unit);
     } catch (e) {
-      return left(ReservationFormFailure.reservationServerError(failed: e.toString()));
+      return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }
   }
+
 
 
 }

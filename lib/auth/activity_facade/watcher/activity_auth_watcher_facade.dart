@@ -41,7 +41,6 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
 
       yield left(const ActivityFormFailure.activityServerError());
     } catch(e) {
-
       yield left(const ActivityFormFailure.activityServerError());
     }
   }
@@ -59,7 +58,7 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
                 return right<ActivityFormFailure, List<ActivityManagerForm>>(event.docs.map((form) =>
                     ActivityManagerFormDto.fromFireStore(form).toDomain()).toList());
               }
-              return left(const ActivityFormFailure.activityServerError());
+            return left(const ActivityFormFailure.activityServerError());
           }
         );
 
@@ -81,7 +80,25 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
     }
   }
 
+  @override
+  Stream<Either<ActivityFormFailure, List<ActivityManagerForm>>> watchAllActivityFormsFromRes({required List<String> reservationIds}) async* {
+    try {
 
+      yield* _fireStore.collection('activity_directory')
+              .where('activityFormId', whereIn: reservationIds.toList())
+              .snapshots().map((event) {
+                if (event.docs.isNotEmpty) {
+                  return right<ActivityFormFailure, List<ActivityManagerForm>>(event.docs.map(
+                          (form) => ActivityManagerFormDto.fromFireStore(form).toDomain()).toList());
+                  }
+                return left(const ActivityFormFailure.activityServerError());
+              }
+            );
+
+    } catch (e) {
+      yield left(const ActivityFormFailure.activityServerError());
+    }
+  }
 }
 
 
@@ -106,7 +123,7 @@ class ActivitySettingsFacade {
   Future<ActivityManagerForm> getActivitySettings({
     required String reservationId
 }) async {
-    if (firebaseUser == null) return Future.error('User does not exist');
+    // if (firebaseUser == null) return Future.error('User does not exist');
 
     final activitySettings = await getFirebaseFirestore()
         .collection('activity_directory')
@@ -121,4 +138,31 @@ class ActivitySettingsFacade {
     return ActivityManagerFormDto.fromJson(query.data()!).toDomain();
   }
 
+
+  Future<int> getNumberOfActivityAttendees({
+    required String reservationId
+}) async {
+    final totalAttendees = await getFirebaseFirestore()
+        .collection('activity_directory')
+        .doc(reservationId)
+        .collection('attendees')
+        .count().get();
+
+    return totalAttendees.count;
+
+  }
+
+  Future<int> getNumberOfChatsInDiscussion({
+    required String reservationId
+}) async {
+
+    final totalChats = await getFirebaseFirestore()
+        .collection('reservation_post')
+        .where('reservationId', isEqualTo: reservationId)
+        .count().get();
+
+    return totalChats.count;
+  }
+
 }
+

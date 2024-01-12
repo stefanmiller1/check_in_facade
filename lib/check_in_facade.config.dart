@@ -58,13 +58,6 @@ _i1.GetIt $initGetIt(
         get<_i5.FirebaseFirestore>(),
         get<_i3.FirebaseAuth>(),
       ));
-  gh.lazySingleton<_i10.RUpdaterFacade>(() => _i10.ResUpdaterFacade(
-        get<_i5.FirebaseFirestore>(),
-        get<_i3.FirebaseAuth>(),
-        get<_i4.FirebaseDynamicLinks>(),
-        get<_i7.FirebaseMessaging>(),
-        get<_i6.FirebaseFunctions>(),
-      ));
   gh.lazySingleton<_i10.SStripeFacade>(() => _i10.StripeFacade(
         get<_i6.FirebaseFunctions>(),
         get<_i5.FirebaseFirestore>(),
@@ -73,6 +66,8 @@ _i1.GetIt $initGetIt(
         get<_i6.FirebaseFunctions>(),
         get<_i5.FirebaseFirestore>(),
       ));
+  gh.lazySingleton<_i10.TWatcherFacade>(
+      () => _i10.TicketWatcherFacade(get<_i5.FirebaseFirestore>()));
   gh.factory<_i10.UnAuthFacade>(
       () => _i10.UnAuthFacade(get<_i5.FirebaseFirestore>()));
   gh.lazySingleton<_i10.AAuthFacade>(() => _i10.ActivityFormFacade(
@@ -90,7 +85,10 @@ _i1.GetIt $initGetIt(
         get<_i8.FirebaseStorage>(),
       ));
   gh.lazySingleton<_i10.ATTAuthWatcherFacade>(
-      () => _i10.AttendanceAuthWatcherFacade(get<_i5.FirebaseFirestore>()));
+      () => _i10.AttendanceAuthWatcherFacade(
+            get<_i5.FirebaseFirestore>(),
+            get<_i3.FirebaseAuth>(),
+          ));
   gh.lazySingleton<_i10.FAuthFacade>(() => _i10.FacilityFormFacade(
         get<_i5.FirebaseFirestore>(),
         get<_i3.FirebaseAuth>(),
@@ -111,6 +109,14 @@ _i1.GetIt $initGetIt(
         get<_i5.FirebaseFirestore>(),
         get<_i3.FirebaseAuth>(),
         get<_i10.LocationAuthFacade>(),
+      ));
+  gh.lazySingleton<_i10.RUpdaterFacade>(() => _i10.ResUpdaterFacade(
+        get<_i5.FirebaseFirestore>(),
+        get<_i3.FirebaseAuth>(),
+        get<_i4.FirebaseDynamicLinks>(),
+        get<_i7.FirebaseMessaging>(),
+        get<_i6.FirebaseFunctions>(),
+        get<_i10.ATTAuthFacade>(),
       ));
   return get;
 }

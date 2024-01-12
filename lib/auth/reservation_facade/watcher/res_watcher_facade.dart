@@ -12,9 +12,11 @@ class ResWatcherFacade implements RAuthWatcherFacade {
   Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchReservationFacilityItem({required List<String> facilityId, required String? activityTypeId, required bool? isPublic, required List<ReservationSlotState>? resState}) async* {
 
     try {
-      var query = _fireStore
-          .collection('reservation_directory')
-          .where('instanceId', whereIn: facilityId);
+      CollectionReference reference = _fireStore.collection('reservation_directory');
+      Query query = reference.where('instanceId', isEqualTo: facilityId.first);
+
+
+      // .where('reservationState', whereNotIn: [ReservationSlotState.completed.toString()]);
       
       if (activityTypeId != null) {
         query.where('');
@@ -25,16 +27,16 @@ class ResWatcherFacade implements RAuthWatcherFacade {
       }
 
       if (resState != null && resState.isNotEmpty) {
-        query.where('reservationState', whereNotIn: resState.map((e) => e.toString()).toList());
+        query = query.where('reservationState', whereIn: resState.map((e) => e.toString()).toList());
       }
 
       // query.limit(2);
-      
+
       yield* query.snapshots().map((event) {
             if (event.docs.isNotEmpty) {
-              return right<ReservationFormFailure, List<ReservationItem>>(event.docs.map((form) => ReservationItemDto.fromFireStore(form.data()).toDomain()).toList());
+              return right<ReservationFormFailure, List<ReservationItem>>(event.docs.map((form) => ReservationItemDto.fromFireStore(form.data() as Map<String, dynamic>).toDomain()).toList());
             }
-            return left(const ReservationFormFailure.reservationServerError());
+          return left(const ReservationFormFailure.reservationServerError());
       });
 
       yield left(const ReservationFormFailure.reservationServerError());
@@ -50,14 +52,17 @@ class ResWatcherFacade implements RAuthWatcherFacade {
   }
 
   @override
-  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchCurrentUserReservationItem({required UserProfileModel currentUser, required bool isResInvitation}) async* {
+  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchCurrentUserReservationItem({required List<ReservationSlotState> resState, required UserProfileModel currentUser, required bool isResInvitation}) async* {
 
     try {
       if (isResInvitation) {
+
         final userItem = StringItemDto(stringItem: currentUser.userId.getOrCrash()).toJson();
+
         yield* _fireStore
             .collection('reservation_directory')
-            // .orderBy('createdAtSTC', descending: true)
+            .orderBy('createdAtSTC', descending: true)
+            .where('reservationState', whereIn: resState.map((e) => e.toString()).toList())
             .where('affiliateIds', arrayContainsAny: [userItem]).snapshots().map(
                 (event) {
                   if (event.docs.isNotEmpty) {
@@ -68,8 +73,9 @@ class ResWatcherFacade implements RAuthWatcherFacade {
       } else {
         yield* _fireStore
             .collection('reservation_directory')
-            // .orderBy('createdAtSTC', descending: true)
+            .orderBy('createdAtSTC', descending: true)
             .where('reservationOwnerId', isEqualTo: currentUser.userId.getOrCrash())
+            .where('reservationState', whereIn: resState.map((e) => e.toString()).toList())
             .snapshots().map((event) {
           if (event.docs.isNotEmpty) {
             return right<ReservationFormFailure, List<ReservationItem>>(event.docs.map((form) {
@@ -83,9 +89,8 @@ class ResWatcherFacade implements RAuthWatcherFacade {
           return left(const ReservationFormFailure.reservationServerError(failed: 'no reservations found'));
         });
       }
-      yield left(const ReservationFormFailure.reservationServerError());
     } catch (e) {
-      yield left(const ReservationFormFailure.reservationServerError());
+      yield left(ReservationFormFailure.reservationServerError(failed: e.toString()));
     }
   }
 
@@ -132,6 +137,123 @@ class ResWatcherFacade implements RAuthWatcherFacade {
     }
   }
 
+  @override
+  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchDiscoveryReservationItems({required List<ReservationSlotState> resState, required int? hoursTimeAhead, required int? hoursTimeBefore}) async* {
+    
+    try {
+       var query = _fireStore.collection('reservation_directory')
+       .where('reservationState', whereIn: resState.map((e) => e.toString()).toList());
+       // .where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead ?? 0)).millisecondsSinceEpoch);
+
+
+       if (hoursTimeAhead != null && hoursTimeBefore == null) {
+           /// exclude any reservation that are greater than x hours from now
+           query = query.where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead)).millisecondsSinceEpoch);
+        }
+
+        if (hoursTimeBefore != null && hoursTimeAhead == null) {
+          /// exclude any reservations that are less than x number of hours
+          query = query.where('lastSlotTimestamp', isGreaterThan: DateTime.now().subtract(Duration(hours: hoursTimeBefore)).millisecondsSinceEpoch);
+        }
+
+
+
+        // query.orderBy('reservationReview', descending: true);
+
+        yield* query.snapshots().map(
+              (event) {
+            if (event.docs.isNotEmpty) {
+              return right<ReservationFormFailure, List<ReservationItem>>(event.docs.map((form) => ReservationItemDto.fromFireStore(form.data()).toDomain()).toList());
+            }
+            return left(const ReservationFormFailure.reservationServerError(failed: 'no reservations found'));
+          });
+
+      yield left(const ReservationFormFailure.reservationServerError(failed: 'reservation not found'));
+    } catch (e) {
+      yield left(ReservationFormFailure.reservationServerError(failed: e.toString()));
+    }
+  }
+}
+
+
+
+class ReservationFacade {
+
+  ReservationFacade._privateConstructor() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      firebaseUser = user;
+    });
+  }
+
+  /// Current logged in user in Firebase. Does not update automatically.
+  /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
+  User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+  /// Gets proper [FirebaseFirestore] instance.
+  FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
+
+
+  static final ReservationFacade instance = ReservationFacade._privateConstructor();
+
+  Future<int> getNumberOfReservationsBooked({
+  required String listingId,
+  required List<ReservationSlotState> statusType,
+  required int? hoursTimeAhead,
+  required int? hoursTimeBefore,
+  }) async  {
+
+    var query = getFirebaseFirestore().collection('reservation_directory')
+        .where('reservationState', whereIn: statusType.map((e) => e.toString()).toList());
+
+    query = query.where('instanceId', isEqualTo: listingId);
+
+    if (hoursTimeAhead != null && hoursTimeBefore == null) {
+      /// exclude any reservation that are greater than x hours from now
+      query = query.where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead)).millisecondsSinceEpoch);
+    }
+
+    if (hoursTimeBefore != null && hoursTimeAhead == null) {
+      /// exclude any reservations that are less than x number of hours
+      query = query.where('lastSlotTimestamp', isGreaterThan: DateTime.now().subtract(Duration(hours: hoursTimeBefore)).millisecondsSinceEpoch);
+    }
+
+    final numberOfReservations = await query.count().get();
+
+    return numberOfReservations.count;
+}
+
+
+Future<List<ReservationItem>> getReservationsBooked({
+  required String listingId,
+  required List<ReservationSlotState> statusType,
+  required int? hoursTimeAhead,
+  required int? hoursTimeBefore,
+}) async {
+
+  var query = getFirebaseFirestore().collection('reservation_directory')
+      .where('reservationState', whereIn: statusType.map((e) => e.toString()).toList())
+      .where('instanceId', isEqualTo: listingId);
+
+
+  if (hoursTimeAhead != null && hoursTimeBefore == null) {
+    /// exclude any reservation that are greater than x hours from now
+    query = query.where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead)).millisecondsSinceEpoch);
+  }
+
+  if (hoursTimeBefore != null && hoursTimeAhead == null) {
+    /// exclude any reservations that are less than x number of hours
+    query = query.where('lastSlotTimestamp', isGreaterThan: DateTime.now().subtract(Duration(hours: hoursTimeBefore)).millisecondsSinceEpoch);
+  }
+
+  final reservations = await query.get();
+
+  return reservations.docs.map((e) => processReservationItem(e)).toList();
+}
+
+ReservationItem processReservationItem(DocumentSnapshot<Map<String, dynamic>> query) {
+  return ReservationItemDto.fromJson(query.data()!).toDomain();
+}
 
 
 }
+

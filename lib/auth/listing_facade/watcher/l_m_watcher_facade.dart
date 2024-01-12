@@ -6,6 +6,6 @@ abstract class LMWatcherFacade {
   Stream<Either<ListingFormFailure, ListingManagerForm>> watchListingManagerItem({required String listingId});
   Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchAllListingMangerItems({required List<String>? listingIdFilterBy});
 
-  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchSearchedListingItems(List<String>? countriesFilter, String? city, String? stateProvince, bool? isVerified);
+  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchSearchedListingItems(List<ManagerListingStatusType> status, String? country, String? city, bool? isVerified);
 
 }

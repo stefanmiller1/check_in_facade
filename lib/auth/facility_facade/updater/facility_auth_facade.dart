@@ -47,8 +47,6 @@ class FacilityFormFacade implements FAuthFacade {
 
     try {
 
-      print('checking');
-
       final currentUserId = _firebaseAuth.currentUser;
       final userDoc = await _fireStore.userDocument();
       final listingDoc = await _fireStore.listingDocument(facilityIdValue);

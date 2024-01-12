@@ -48,13 +48,16 @@ class AutoCompleteSearchModel extends ChangeNotifier {
       final String selectedLanguage = language;
       const String type = 'geocode&language';
 
+
       const String baseURL = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
       final String request = '$baseURL?input=$_query&types=$type=$selectedLanguage&key=$PLACES_API_KEY&sessiontoken=$_sessionToken';
 
       try {
+        print('trying');
         final http.Response response = await http.get(Uri.parse(request));
         final predictions = jsonDecode(response.body)['predictions'] as List;
 
+        print(predictions);
 
 
         _suggestions = predictions.map((e) =>
@@ -67,6 +70,7 @@ class AutoCompleteSearchModel extends ChangeNotifier {
             )
         ).toList();
       } catch (e) {
+        print(e);
         _isLoading = false;
       }
     }
