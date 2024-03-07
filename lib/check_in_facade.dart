@@ -9,6 +9,7 @@ import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/atte
 import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/attendee_item_dtos.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post_dtos.dart';
+import 'package:check_in_facade/check_in_facade.config.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:check_in_credentials/check_in_credentials.dart';
@@ -16,6 +17,7 @@ import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' as stripe;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:injectable/injectable.dart';
@@ -35,7 +37,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
-import 'check_in_facade.config.dart';
 import 'package:intl/intl.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
 
@@ -68,9 +69,17 @@ part 'auth/reservation_facade/watcher/res_watcher_facade.dart';
 part 'auth/reservation_facade/updater/r_updater_facade.dart';
 part 'auth/reservation_facade/updater/res_updater_facade.dart';
 
+part 'auth/notification_facade/updater/n_auth_facade.dart';
+part 'auth/notification_facade/updater/notification_auth_facade.dart';
+part 'auth/notification_facade/watcher/n_watcher_facade.dart';
+part 'auth/notification_facade/watcher/notification_watcher_facade.dart';
+
 part 'auth/chat_facade/firebase_chat_core_config.dart';
 part 'auth/chat_facade/firebase_chat_facade.dart';
 part 'auth/chat_facade/util.dart';
+
+part 'auth/community_facade/watcher/c_auth_watcher_facade.dart';
+part 'auth/community_facade/watcher/community_auth_watcher_facade.dart';
 
 part 'auth/activity_facade/watcher/a_auth_watcher_facade.dart';
 part 'auth/activity_facade/watcher/activity_auth_watcher_facade.dart';

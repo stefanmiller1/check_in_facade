@@ -108,7 +108,6 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
   @override
   Future<bool?> get isEmailVerified async {
     if (_firebaseAuth.currentUser != null) {
-      print(_firebaseAuth.currentUser!.emailVerified);
       return _firebaseAuth.currentUser!.emailVerified;
     }
     return false;
@@ -313,7 +312,6 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
         if ((appleCredential.additionalUserInfo?.isNewUser ?? false) && appleCredential.user != null) {
           print('new user');
-          print(appleCredential.user);
             final givenName = appleIdCredential.givenName;
             final hasGivenName = givenName != null;
             final familyName = appleIdCredential.familyName;

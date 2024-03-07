@@ -22,7 +22,6 @@ class ListingManagerFacade implements LMFacade {
 
       return right(unit);
     } catch (e) {
-      print(e);
       return left(ListingFormFailure.listingServerError(failed: e.toString()));
     }
 

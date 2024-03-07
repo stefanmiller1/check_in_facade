@@ -69,7 +69,6 @@ class StripeFacade implements SStripeFacade {
         }
       );
 
-
       /// 4. return payment results
       if (responseData.data['error'] != null) {
         return left (PaymentMethodValueFailure.paymentServerError(failedValue: responseData.data['error']));

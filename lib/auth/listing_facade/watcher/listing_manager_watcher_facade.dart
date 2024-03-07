@@ -81,8 +81,6 @@ class ListingManagerWatcherFacade implements LMWatcherFacade {
 
       yield* listingRef.snapshots()
             .map((event) {
-              print('SNOAIWND');
-              print(event.docs.isNotEmpty);
           if (event.docs.isNotEmpty) {
             return right<ListingFormFailure, List<ListingManagerForm>>(event.docs.map((listing) => ListingManagerFormDto.fromFireStore(listing).toDomain()).toList());
           } else {

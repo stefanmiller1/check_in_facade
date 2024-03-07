@@ -57,7 +57,6 @@ class AutoCompleteSearchModel extends ChangeNotifier {
         final http.Response response = await http.get(Uri.parse(request));
         final predictions = jsonDecode(response.body)['predictions'] as List;
 
-        print(predictions);
 
 
         _suggestions = predictions.map((e) =>
@@ -70,7 +69,6 @@ class AutoCompleteSearchModel extends ChangeNotifier {
             )
         ).toList();
       } catch (e) {
-        print(e);
         _isLoading = false;
       }
     }
@@ -95,7 +93,6 @@ class AutoCompleteSearchModel extends ChangeNotifier {
         ).toList();
       }
     } catch (e) {
-      print(e);
       _isLoading = false;
     }
 

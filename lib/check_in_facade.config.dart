@@ -54,6 +54,15 @@ _i1.GetIt $initGetIt(
       () => _i10.LocationUnAuthWatcherFacade(get<_i5.FirebaseFirestore>()));
   gh.lazySingleton<_i10.MMiscFacade>(
       () => _i10.MiscFacade(get<_i5.FirebaseFirestore>()));
+  gh.lazySingleton<_i10.NAuthFacade>(() => _i10.NotificationUpdaterFacade(
+        get<_i5.FirebaseFirestore>(),
+        get<_i7.FirebaseMessaging>(),
+        get<_i3.FirebaseAuth>(),
+      ));
+  gh.lazySingleton<_i10.NWatcherFacade>(() => _i10.NotificationWatcherFacade(
+        get<_i5.FirebaseFirestore>(),
+        get<_i3.FirebaseAuth>(),
+      ));
   gh.lazySingleton<_i10.RAuthWatcherFacade>(() => _i10.ResWatcherFacade(
         get<_i5.FirebaseFirestore>(),
         get<_i3.FirebaseAuth>(),
@@ -73,8 +82,7 @@ _i1.GetIt $initGetIt(
   gh.lazySingleton<_i10.AAuthFacade>(() => _i10.ActivityFormFacade(
         get<_i5.FirebaseFirestore>(),
         get<_i8.FirebaseStorage>(),
-        get<_i3.FirebaseAuth>(),
-        get<_i10.LocationAuthFacade>(),
+        get<_i10.NAuthFacade>(),
       ));
   gh.lazySingleton<_i10.AAuthWatcherFacade>(() => _i10.ActivityWatcherFacade(
         get<_i5.FirebaseFirestore>(),
@@ -83,12 +91,18 @@ _i1.GetIt $initGetIt(
   gh.lazySingleton<_i10.ATTAuthFacade>(() => _i10.AttendeeFormFacade(
         get<_i5.FirebaseFirestore>(),
         get<_i8.FirebaseStorage>(),
+        get<_i10.NAuthFacade>(),
+        get<_i7.FirebaseMessaging>(),
       ));
   gh.lazySingleton<_i10.ATTAuthWatcherFacade>(
       () => _i10.AttendanceAuthWatcherFacade(
             get<_i5.FirebaseFirestore>(),
             get<_i3.FirebaseAuth>(),
           ));
+  gh.lazySingleton<_i10.CAuthWatcherFacade>(() => _i10.CommunityWatcherFacade(
+        get<_i5.FirebaseFirestore>(),
+        get<_i3.FirebaseAuth>(),
+      ));
   gh.lazySingleton<_i10.FAuthFacade>(() => _i10.FacilityFormFacade(
         get<_i5.FirebaseFirestore>(),
         get<_i3.FirebaseAuth>(),
@@ -115,8 +129,8 @@ _i1.GetIt $initGetIt(
         get<_i3.FirebaseAuth>(),
         get<_i4.FirebaseDynamicLinks>(),
         get<_i7.FirebaseMessaging>(),
-        get<_i6.FirebaseFunctions>(),
         get<_i10.ATTAuthFacade>(),
+        get<_i10.NAuthFacade>(),
       ));
   return get;
 }

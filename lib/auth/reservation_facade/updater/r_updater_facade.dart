@@ -23,7 +23,8 @@ abstract class RUpdaterFacade {
 
   /// update reservation post
   Future<Either<ReservationFormFailure, Unit>> createReservationPost({
-    required Post reservationPost
+    required Post reservationPost,
+    required List<AttendeeItem> attendees
 });
 
   /// reply to existing reservation post
@@ -60,7 +61,7 @@ abstract class RUpdaterFacade {
   /// send invitation to selected list
   Future<Either<AttendeeFormFailure, Unit>> sendInvitationToUsers({
     required String reservationId,
-    required ActivityManagerForm activityForm,
+    required ActivityManagerForm? activityForm,
     required List<AttendeeItem> invitations
 });
 

@@ -5,15 +5,20 @@ class AttendeeFormFacade implements ATTAuthFacade {
 
   final FirebaseFirestore _fireStore;
   final FirebaseStorage _firebaseStorage;
+  final FirebaseMessaging _firebaseMessaging;
+  final NAuthFacade _notificationFacade;
 
   AttendeeFormFacade(
       this._fireStore,
-      this._firebaseStorage);
+      this._firebaseStorage,
+      this._notificationFacade,
+      this._firebaseMessaging
+      );
 
 
 
   @override
-  Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({required AttendeeItem attendeeItem, required ActivityManagerForm activityForm, required String? paymentIntentId}) async {
+  Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({required AttendeeItem attendeeItem, required ActivityManagerForm? activityForm, required String? paymentIntentId}) async {
 
     late AttendeeItem attendee;
     attendee = attendeeItem;
@@ -51,24 +56,36 @@ class AttendeeFormFacade implements ATTAuthFacade {
       }
 
 
-      if (attendeeItem.attendeeType == AttendeeType.free) {
-        final attendeeCount = await _fireStore.collection('activity_directory')
-            .doc(attendeeItem.reservationId.getOrCrash())
-            .collection('attendees')
-            .where('attendeeType', isEqualTo: 'AttendeeType.free')
-            .where('contactStatus', isEqualTo: 'ContactStatus.joined')
-            .count().get();
+      /// check [ActivityManagerForm] for attendee limits and rules if activity form exists.
+      if (activityForm != null) {
+        if (attendeeItem.attendeeType == AttendeeType.free) {
+          final attendeeCount = await _fireStore.collection('activity_directory')
+              .doc(attendeeItem.reservationId.getOrCrash())
+              .collection('attendees')
+              .where('attendeeType', isEqualTo: 'AttendeeType.free')
+              .where('contactStatus', isEqualTo: 'ContactStatus.joined')
+              .count().get();
 
-        if (activityForm.activityAttendance.attendanceLimit != null && activityForm.activityAttendance.attendanceLimit != 0 && (activityForm.activityAttendance.attendanceLimit! <= attendeeCount.count)) {
-          return left(const AttendeeFormFailure.attendeeLimitReached());
+          if (activityForm.activityAttendance.attendanceLimit != null && activityForm.activityAttendance.attendanceLimit != 0 && (activityForm.activityAttendance.attendanceLimit! <= (attendeeCount.count ?? 0))) {
+            return left(const AttendeeFormFailure.attendeeLimitReached());
+          }
         }
-      }
 
 
       /// create attendee - and update attendee tickets such that they are no longer onHold.
       if (attendeeItem.attendeeType == AttendeeType.tickets) {
-        /// get count for ticket in each [TicketItem] that was selected during check-out.
-        await createNewTicket(attendeeItem: attendeeItem, activityForm: activityForm, isOnHold: false);
+          /// get count for ticket in each [TicketItem] that was selected during check-out.
+          await createNewTicket(attendeeItem: attendeeItem, activityForm: activityForm, isOnHold: false);
+        }
+      }
+
+      /// create notification from attendee to owner for request to join
+      if (attendeeItem.contactStatus == ContactStatus.requested) {
+          await _notificationFacade.createRequestToJoinReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
+      }
+
+      if (attendeeItem.contactStatus == ContactStatus.joined) {
+          await _notificationFacade.createJoinedReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
       }
 
       final attendeeFormDto = AttendeeItemDto.fromDomain(attendee).toJson();
@@ -272,6 +289,8 @@ class AttendeeFormFacade implements ATTAuthFacade {
 
       attendeeDoc.delete();
       profileAttReservations.delete();
+
+      await _firebaseMessaging.unsubscribeFromTopic(attendeeItem.reservationId.getOrCrash());
 
       return right(unit);
     } on FirebaseAuthException catch (e) {

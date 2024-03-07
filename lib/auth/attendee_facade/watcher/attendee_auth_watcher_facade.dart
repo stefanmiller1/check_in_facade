@@ -45,7 +45,7 @@ class AttendanceAuthWatcherFacade implements ATTAuthWatcherFacade {
           .where('attendeeType', isEqualTo: attendeeType)
           .count().get();
 
-      yield right(attendeeCount.count);
+      yield right(attendeeCount.count ?? 0);
     } catch (e) {
       yield left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }

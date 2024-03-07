@@ -85,7 +85,7 @@ class TicketWatcherFacade implements TWatcherFacade {
           .where('isOnHold', isEqualTo: true)
           .where('expiresAt', isGreaterThanOrEqualTo: DateTime.now().millisecondsSinceEpoch).count().get();
 
-      final ticketCount = purchasedTicketsCount.count + onHoldTicketsCount.count;
+      final ticketCount = purchasedTicketsCount.count ?? 0 + (onHoldTicketsCount.count ?? 0);
 
       yield right(ticketCount);
     } catch (e) {
@@ -211,19 +211,14 @@ class AttendeeAuthCore {
 
       final responseData = await functionRef.call(jsonEncode(pkPassJson));
 
-      // final result = jsonDecode(responseData.body);
-      // print(result);
-      print(responseData.data);
       if (responseData.data == null) {
         return false;
       }
 
       return true;
     } on FirebaseFunctionsException catch (err) {
-      print(err.message);
       return false;
     } catch (e) {
-      print(e);
       return false;
     }
   }
@@ -245,7 +240,7 @@ class AttendeeAuthCore {
           .where('isOnHold', isEqualTo: true)
           .where('expiresAt', isGreaterThanOrEqualTo: DateTime.now().add(const Duration(minutes: 3)).millisecondsSinceEpoch).count().get();
 
-      final ticketCount = purchasedTicketsCount.count + onHoldTicketsCount.count;
+      final ticketCount = (purchasedTicketsCount.count ?? 0) + (onHoldTicketsCount.count ?? 0);
 
       yield  ticketCount;
     } catch (e) {

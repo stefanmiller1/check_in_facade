@@ -8,15 +8,15 @@ class ResUpdaterFacade implements RUpdaterFacade {
   final FirebaseDynamicLinks _dynamicLinks;
   final FirebaseMessaging _firebaseMessaging;
   final ATTAuthFacade _attendeeFormFacade;
-  final FirebaseFunctions _firebaseFunctions;
+  final NAuthFacade _notificationFacade;
 
   ResUpdaterFacade(
       this._fireStore,
       this._firebaseAuth,
       this._dynamicLinks,
       this._firebaseMessaging,
-      this._firebaseFunctions,
-      this._attendeeFormFacade
+      this._attendeeFormFacade,
+      this._notificationFacade
     );
 
   @override
@@ -216,33 +216,13 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
 
   @override
-  Future<Either<ReservationFormFailure, Unit>> createReservationPost({required Post reservationPost}) async {
+  Future<Either<ReservationFormFailure, Unit>> createReservationPost({required Post reservationPost, required List<AttendeeItem> attendees}) async {
 
     try {
       final reservationPostDto = PostDto.fromDomain(reservationPost).toJson();
       final resPostDoc = await _fireStore.reservationPostDocument(reservationPost.id);
 
-      await http.post(
-        Uri.parse('https://fcm.googleapis.com/v1/projects/cico-8298b/messages:send'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Authorization': 'key=$CMF_SERVER_KEY',
-        },
-        body: jsonEncode(
-          <String, dynamic>{
-            'priority': 'high',
-            'topic': reservationPost.reservationId,
-            'data': {
-              'reservationId': reservationPost.reservationId,
-              'status': 'done',
-            },
-            'notification': {
-              'title': 'New Message',
-              'body': reservationPost.textPost?.text,
-            }
-          }
-        )
-      );
+      _notificationFacade.createNewReservationPostNotification(attendees: attendees, post: reservationPost);
 
       resPostDoc.set(reservationPostDto);
       return right(unit);
@@ -308,8 +288,12 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
       final reservationPostDto = {'postLikes': reservationPost.postLikes?.map((e) => StringItemDto.fromDomain(e.getOrCrash()).toJson()).toList(), 'likeCount': reservationPost.postLikes?.length};
       final resPostDoc = await _fireStore.reservationPostDocument(reservationPost.id);
-
       resPostDoc.update(reservationPostDto);
+
+      /// send notification to post owner
+      if (_firebaseAuth.currentUser?.uid != reservationPost.authorId.getOrCrash()) {
+        _notificationFacade.createDidLikePostNotification(likedPost: reservationPost);
+      }
       return right(unit);
     } catch (e) {
 
@@ -361,9 +345,10 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
 
   @override
-  Future<Either<AttendeeFormFailure, Unit>> sendInvitationToUsers({required String reservationId, required ActivityManagerForm activityForm, required List<AttendeeItem> invitations}) async {
+  Future<Either<AttendeeFormFailure, Unit>> sendInvitationToUsers({required String reservationId, required ActivityManagerForm? activityForm, required List<AttendeeItem> invitations}) async {
 
     try {
+
 
       for (AttendeeItem attendee in invitations) {
         final attendeeFacade = await _attendeeFormFacade.createNewAttendee(attendeeItem: attendee, activityForm: activityForm, paymentIntentId: null);
@@ -375,36 +360,17 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
 
       /// send notifications to all invited contacts if contacts have yet to be invited.
-      for (AttendeeItem userId in invitations) {
+      for (AttendeeItem attendee in invitations) {
 
-        final userInfo = await _fireStore.collection('users').doc(userId.attendeeOwnerId.getOrCrash()).get();
+        final notificationFacade = await _notificationFacade.createReservationInvitationNotification(
+            reservationId: reservationId,
+            attendee: attendee
+        );
 
-            /// make an invitation request for new selected contacts
-          if (userInfo.data().toString().contains('token')) {
-            final userToken = userInfo['token'];
-            await http.post(
-                Uri.parse('https://fcm.googleapis.com/fcm/send'),
-                headers: <String, String>{
-                  'Content-Type': 'application/json',
-                  'Authorization': 'key=$CMF_SERVER_KEY',
-                },
-                body: jsonEncode(
-                    <String, dynamic>{
-                      'priority': 'high',
-                      'data': <String, dynamic>{
-                        'reservationId': reservationId,
-                        'status': 'done',
-                      },
-                      'notification': {
-                        'title': 'New Invitation!',
-                        'body': 'You\'ve been invited to Join a new Reservation!',
-                      },
-                  'to': userToken,
-                }
-              )
-            );
-          }
+        if (notificationFacade.isLeft()) {
+          return left(const AttendeeFormFailure.attendeeServerError(failed: 'error creating attendee'));
         }
+      }
 
       return right(unit);
     } catch (e) {
@@ -424,12 +390,13 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
         attendeeDoc.delete();
         profileAttReservations.delete();
+
+        /// remove notification & unsubscribe.
+        await _notificationFacade.deleteReservationInvitationNotification(reservationId: reservationId, attendeeUserId: attendeeId);
+
       return right(unit);
     } catch (e) {
       return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }
   }
-
-
-
 }

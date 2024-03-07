@@ -22,8 +22,7 @@ class FirebaseChatCore {
   User? firebaseUser = FirebaseAuth.instance.currentUser;
 
   /// Singleton instance.
-  static final FirebaseChatCore instance =
-  FirebaseChatCore._privateConstructor();
+  static final FirebaseChatCore instance = FirebaseChatCore._privateConstructor();
 
   /// Gets proper [FirebaseFirestore] instance.
   FirebaseFirestore getFirebaseFirestore() => config.firebaseAppName != null
@@ -452,34 +451,33 @@ class FirebaseChatCore {
 
 
   /// send notification to everyone in room
-  void sendDirectNotifications(List<String>  userIds, types.PartialText textMessage) async  {
+  void sendDirectNotifications(List<String> userIds, types.PartialText textMessage, String reservationId) async  {
   if (firebaseUser == null) return;
 
 
       for (String userId in userIds) {
         final userInfo = await getFirebaseFirestore().collection(config.usersCollectionName).doc(userId).get();
 
+        final UniqueId notificationId = UniqueId();
+        final notificationDto = AccountNotificationItemDto(notificationId: notificationId.getOrCrash(), isRead: false, receivedAtTimeStamp: DateTime.now().millisecondsSinceEpoch, sentFromId: firebaseUser?.uid, notificationType: AccountNotificationType.message.toString(), reservationId: reservationId).toJson();
 
-          if (userInfo.data().toString().contains('token') && userInfo['token'] != null) {
-            final userToken = userInfo['token'];
-            await http.post(
-                Uri.parse('https://fcm.googleapis.com/fcm/send'),
-                headers: <String, String>{
-                  'Content-Type': 'application/json',
-                  'Authorization': 'key=$CMF_SERVER_KEY',
-                },
-                body: jsonEncode(
-                    <String, dynamic>{
-                      'priority': 'high',
-                      'notification': {
-                        'title': '${firebaseUser?.displayName ?? 'Someone'} Sent you a message',
-                        'body': textMessage.text,
-                      },
-                      'to': userToken,
-                    }
-                )
-            );
-          }
+        /// save notification is users profile
+        final resOwnerDoc = getFirebaseFirestore().collection('users').doc(userId);
+        resOwnerDoc.collection('notifications').doc(notificationId.getOrCrash()).set(notificationDto);
+
+        sendPushNotification(
+            userInfo.data().toString().contains('token') ? userInfo['token'] : null,
+            userInfo.data().toString().contains('webToken') ? userInfo['webToken'] : null,
+            <String, dynamic>{
+              'reservationId': reservationId,
+              'status': 'done',
+              'link': '/${DashboardMarker.chat.name.toString()}/$reservationId'
+            },
+            '/${DashboardMarker.reservations.name.toString()}/$reservationId',
+            '${firebaseUser?.displayName ?? 'Someone'} Sent you a message',
+            textMessage.text
+        );
+
     }
   }
 }

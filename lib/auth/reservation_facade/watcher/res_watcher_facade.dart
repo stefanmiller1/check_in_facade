@@ -219,7 +219,7 @@ class ReservationFacade {
 
     final numberOfReservations = await query.count().get();
 
-    return numberOfReservations.count;
+    return numberOfReservations.count ?? 0;
 }
 
 

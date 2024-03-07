@@ -148,7 +148,7 @@ class ActivitySettingsFacade {
         .collection('attendees')
         .count().get();
 
-    return totalAttendees.count;
+    return totalAttendees.count ?? 0;
 
   }
 
@@ -161,7 +161,7 @@ class ActivitySettingsFacade {
         .where('reservationId', isEqualTo: reservationId)
         .count().get();
 
-    return totalChats.count;
+    return totalChats.count ?? 0;
   }
 
 }

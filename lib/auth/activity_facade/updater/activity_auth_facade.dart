@@ -5,16 +5,13 @@ class ActivityFormFacade implements AAuthFacade {
 
   final FirebaseFirestore _fireStore;
   final FirebaseStorage _firebaseStorage;
-  final FirebaseAuth _firebaseAuth;
-  final LocationAuthFacade _locationFacade;
-
+  final NAuthFacade _notificationFacade;
 
   ActivityFormFacade(
       this._fireStore,
       this._firebaseStorage,
-      this._firebaseAuth,
-      this._locationFacade
-      );
+      this._notificationFacade
+    );
 
 
   @override
@@ -43,11 +40,11 @@ class ActivityFormFacade implements AAuthFacade {
     }
 
       /// update images in [ActivityProfileBackground]
-      final ActivityProfileService updatedActivityProfile = ActivityProfileService(
-          activityBackground: activityForm.profileService.activityBackground.copyWith(
+      final ActivityProfileService updatedActivityProfile = activityForm.profileService.copyWith(
+        activityBackground: activityForm.profileService.activityBackground.copyWith(
             activityProfileImages: activityImages
-          ),
-          activityRequirements: activityForm.profileService.activityRequirements);
+        )
+      );
 
       final ActivityManagerForm activity = ActivityManagerForm(
           activityFormId: activityResId,
@@ -61,6 +58,8 @@ class ActivityFormFacade implements AAuthFacade {
       final activityDoc = await _fireStore.activityDocument(activityResId.getOrCrash());
       final activityFormDto = ActivityManagerFormDto.fromDomain(activity).toJson();
       await activityDoc.set(activityFormDto);
+
+      await _notificationFacade.createUpdatedReservationActivityNotification(reservationId: activityResId.getOrCrash());
 
       return right(unit);
     } on FirebaseAuthException catch (e) {

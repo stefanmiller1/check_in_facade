@@ -5,7 +5,7 @@ abstract class ATTAuthFacade {
 
   Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({
     required AttendeeItem attendeeItem,
-    required ActivityManagerForm activityForm,
+    required ActivityManagerForm? activityForm,
     required String? paymentIntentId
   });
 

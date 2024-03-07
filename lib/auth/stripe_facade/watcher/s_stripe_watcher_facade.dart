@@ -83,7 +83,6 @@ class StripeWatcherFacade implements SStripeWatcherFacade {
 
       final List data = responseData.data['data'];
 
-      print(data);
       if (data.isNotEmpty) {
 
         final List<PayoutModel> payouts = data.map((e) {
