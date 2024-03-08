@@ -4,53 +4,39 @@ version: 0.0.1
 publish_to: none
 
 environment:
-  sdk: '>=2.18.4 <3.0.0'
+  sdk: '>=2.18.4 <4.0.0'
   flutter: ">=1.17.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  injectable: ^1.5.0
-  get_it: ^7.2.0
-  dartz: ^0.10.0
-  location: ^4.3.0
+  location: ^5.0.3
   shared_preferences: ^2.0.5
-  firebase_auth: ^4.7.1
-  firebase_core: ^2.15.0
-  firebase_storage: ^11.0.3
-  firebase_dynamic_links: ^5.0.17
-  firebase_messaging: ^14.3.0
-  flutter_stripe: ^10.1.0
-  cloud_firestore: ^4.0.4
-  cloud_functions: ^4.0.3
+  firebase_messaging: ^14.7.18
+  flutter_stripe: ^10.1.1
   flutter_firebase_chat_core: ^1.6.4
-  google_sign_in: ^5.4.2
-  sign_in_with_apple: ^4.3.0
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.0.0
   flutter_local_notifications: ^16.3.1
-  uuid: ^3.0.4
-  geoflutterfire:
-    git: https://github.com/stefanmiller1/GeoFlutterFire
-  crypto: ^3.0.2
   url_launcher: ^6.0.2
   check_in_domain:
     path: /Users/stefanmiller/AndroidStudioProjects/check_in_domain
-  check_in_credentials:
-    path: /Users/stefanmiller/AndroidStudioProjects/check_in_credentials
+
 
 dev_dependencies:
 
-  build_runner: ^2.4.6
-  injectable_generator: ^1.4.1
+#  build_runner: ^2.4.6
+#  injectable_generator: ^1.4.1
 
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+#  flutter_lints: ^3.0.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
-dependency_overrides:
-  watcher: ^1.1.0
+#dependency_overrides:
+#  watcher: ^1.1.0
 
 
 # The following section is specific to Flutter packages.
