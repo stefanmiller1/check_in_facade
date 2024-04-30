@@ -78,8 +78,8 @@ part 'auth/chat_facade/firebase_chat_core_config.dart';
 part 'auth/chat_facade/firebase_chat_facade.dart';
 part 'auth/chat_facade/util.dart';
 
-part 'auth/community_facade/watcher/c_auth_watcher_facade.dart';
-part 'auth/community_facade/watcher/community_auth_watcher_facade.dart';
+part 'auth/circle_community_facade/watcher/c_auth_watcher_facade.dart';
+part 'auth/circle_community_facade/watcher/circle_community_auth_watcher_facade.dart';
 
 part 'auth/activity_facade/watcher/a_auth_watcher_facade.dart';
 part 'auth/activity_facade/watcher/activity_auth_watcher_facade.dart';
@@ -94,6 +94,11 @@ part 'auth/attendee_facade/watcher/attendee_auth_watcher_facade.dart';
 
 part 'auth/locations_facade/updater/lo_auth_facade.dart';
 part 'auth/locations_facade/updater/location_auth_facade.dart';
+
+part 'auth/merch_vendor_facade/updater/merch_vendor_auth_facade.dart';
+part 'auth/merch_vendor_facade/updater/mv_auth_facade.dart';
+part 'auth/merch_vendor_facade/watcher/merch_ven_watcher_facade.dart';
+part 'auth/merch_vendor_facade/watcher/mv_watcher_facade.dart';
 
 part 'auth/listing_facade/watcher/l_m_watcher_facade.dart';
 part 'auth/listing_facade/watcher/listing_manager_watcher_facade.dart';

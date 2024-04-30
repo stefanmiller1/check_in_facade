@@ -5,12 +5,14 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
   final FirebaseFirestore _fireStore;
   final FirebaseAuth _firebaseAuth;
+  final FirebaseStorage _firebaseStorage;
   final LocationAuthFacade _locationFacade;
   final GoogleSignIn _googleSignIn;
 
   FirebaseAuthFacade(
     this._fireStore,
     this._firebaseAuth,
+    this._firebaseStorage,
     this._locationFacade,
     this._googleSignIn
   );
@@ -374,11 +376,19 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
           return right(unit);
         }
 
+        print('TRYING');
 
-        final GoogleSignInAccount? googleSignInAccount = await _googleSignIn.signIn();
+        GoogleSignIn googleSignIn = GoogleSignIn();
+
+
+        final GoogleSignInAccount? googleSignInAccount = await googleSignIn.signIn();
+        //
         if (googleSignInAccount == null) {
           return left(const AuthFailure.exceptionError('Google Sign In has been Cancelled'));
         }
+
+        // print(googleSignInAccount);
+
         final GoogleSignInAuthentication googleSignInAuthentication = await googleSignInAccount.authentication;
 
         final AuthCredential credential = GoogleAuthProvider.credential(
@@ -406,8 +416,10 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
         return right(unit);
       } on FirebaseAuthException catch (e) {
+        print(e);
         return left(getErrorMessageFromFirebaseException(e));
       } catch (e) {
+        print(e);
         return left(AuthFailure.exceptionError(e.toString()));
       }
   } 
@@ -611,7 +623,7 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
 
   @override
-  Future<Either<AuthFailure, Unit>> updateUserProfile({required UserProfileModel profile, String? profileImageUrl, String? photoIDUrl, String? photoSelfieUrl}) async {
+  Future<Either<AuthFailure, Unit>> updateUserProfile({required UserProfileModel profile, ImageUpload? profileImageData, String? photoIDUrl, String? photoSelfieUrl}) async {
     try {
 
       var userProfileDto = UserProfileItemDto.fromDomain(profile);
@@ -619,13 +631,21 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
       await userDoc.update(userProfileDto.toJson());
 
-      if (profileImageUrl != null) {
+
+      if (profileImageData != null && profileImageData.imageToUpload != null) {
         try {
+
+          final Uint8List imageData = profileImageData.imageToUpload!;
+
+          final reference = _firebaseStorage.ref('user').child(profile.userId.getOrCrash());
+          await reference.putData(imageData);
+
+          final uri = await reference.getDownloadURL();
           userProfileDto = userProfileDto.copyWith(
-            photoUri: profileImageUrl
+            photoUri: uri
           );
            await userDoc.update(userProfileDto.toJson());
-          _firebaseAuth.currentUser?.updatePhotoURL(profileImageUrl);
+          _firebaseAuth.currentUser?.updatePhotoURL(uri);
         } catch (e) {
           return left(AuthFailure.serverError());
         }
@@ -711,8 +731,6 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
   Future<Either<AuthFailure, Unit>> updateUserProfileSocials({required SocialsItem socials}) async {
     try {
 
-      print('saving social');
-
       final userProfileSocialDto = SocialsItemDto.fromDomain(socials);
       final userDoc = await _fireStore.userDocument();
 
@@ -722,6 +740,36 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
     } catch (e) {
       print(e.toString());
       return left(AuthFailure.serverError());
+    }
+  }
+
+
+  @override
+  Future<Either<AuthFailure, Unit>> deleteCurrentUserAccount() async {
+    try {
+
+      final providerData = _firebaseAuth.currentUser?.providerData.first;
+      final currentUserId = _firebaseAuth.currentUser?.uid;
+
+      UserCredential? credential;
+
+      if (AppleAuthProvider().providerId == providerData?.providerId) {
+        credential = await _firebaseAuth.currentUser?.reauthenticateWithProvider(AppleAuthProvider());
+      } else if (GoogleAuthProvider().providerId == providerData?.providerId) {
+        credential = await _firebaseAuth.currentUser?.reauthenticateWithProvider(GoogleAuthProvider());
+      }
+
+      if (currentUserId != null && credential != null) {
+        await _fireStore.collection('users').doc(currentUserId).delete();
+        await _firebaseStorage.ref('user').child(currentUserId).delete();
+        await _firebaseAuth.currentUser?.delete();
+      } else {
+        return left(AuthFailure.exceptionError('Could not verify your credentials?'));
+      }
+
+      return right(unit);
+    } catch (e) {
+      return left(AuthFailure.exceptionError(e.toString()));
     }
   }
 
@@ -908,6 +956,7 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
       yield left(AuthFailure.serverError());
     }
   }
+
 
 
 

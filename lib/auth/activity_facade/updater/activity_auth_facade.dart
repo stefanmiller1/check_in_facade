@@ -20,8 +20,10 @@ class ActivityFormFacade implements AAuthFacade {
 
     try {
 
+      ActivityManagerForm newActivityForm = activityForm;
+
       final List<ImageUpload> activityImages = [];
-      activityImages.addAll(activityForm.profileService.activityBackground.activityProfileImages ?? []);
+      activityImages.addAll(newActivityForm.profileService.activityBackground.activityProfileImages ?? []);
 
       /// store activity profile images if new ones exists
       for (ImageUpload images in activityImages) {
@@ -40,26 +42,29 @@ class ActivityFormFacade implements AAuthFacade {
     }
 
       /// update images in [ActivityProfileBackground]
-      final ActivityProfileService updatedActivityProfile = activityForm.profileService.copyWith(
-        activityBackground: activityForm.profileService.activityBackground.copyWith(
+      newActivityForm = newActivityForm.copyWith(
+        activityFormId: activityResId,
+        profileService: newActivityForm.profileService.copyWith(
+          activityBackground: newActivityForm.profileService.activityBackground.copyWith(
             activityProfileImages: activityImages
+          )
         )
       );
 
-      final ActivityManagerForm activity = ActivityManagerForm(
-          activityFormId: activityResId,
-          profileService: updatedActivityProfile,
-          rulesService: activityForm.rulesService,
-          activityType: activityForm.activityType,
-          activityAttendance: activityForm.activityAttendance
-      );
 
-
+      final reservationDoc = await _fireStore.reservationDocument(activityResId.getOrCrash());
       final activityDoc = await _fireStore.activityDocument(activityResId.getOrCrash());
-      final activityFormDto = ActivityManagerFormDto.fromDomain(activity).toJson();
+      final activityFormDto = ActivityManagerFormDto.fromDomain(newActivityForm).toJson();
       await activityDoc.set(activityFormDto);
 
       await _notificationFacade.createUpdatedReservationActivityNotification(reservationId: activityResId.getOrCrash());
+
+      /// update reservation state
+      if (activitySetupComplete(newActivityForm)) {
+        reservationDoc.update({'isActivity': true});
+      } else {
+        reservationDoc.update({'isActivity': false});
+      }
 
       return right(unit);
     } on FirebaseAuthException catch (e) {

@@ -9,6 +9,11 @@ abstract class ATTAuthFacade {
     required String? paymentIntentId
   });
 
+  Future<Either<AttendeeFormFailure, Unit>> updateInterestedAttendee({
+    required String reservationId,
+    required String? userId
+  });
+
   Future<Either<AttendeeFormFailure, UserProfileModel>> checkVendorLimit({
    required AttendeeItem attendeeItem,
    required ActivityManagerForm activityForm,

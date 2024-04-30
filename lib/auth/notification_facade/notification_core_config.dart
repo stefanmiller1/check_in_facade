@@ -130,47 +130,53 @@ class LocalNotificationCore {
       return;
     }
 
-    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        badge: true,
-        provisional: false,
-        sound: true
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      String? token;
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-
-      if (FirebaseAuth.instance.currentUser != null) {
-        if (kIsWeb) {
-          token = await FirebaseMessaging.instance.getToken(vapidKey: WEB_PUSH_CERTIFICATE);
-        } else {
-          token = await FirebaseMessaging.instance.getToken();
-        }
-
-
-        if (kIsWeb) {
-          await FirebaseFirestore.instance.collection('users').doc(userId).update({'webToken': token});
-        } else {
-          await FirebaseFirestore.instance.collection('users').doc(userId).update({'token': token});
-        }
-      }
-
-
-      if (!(kIsWeb)) {
-        // create Android Notification Channel.
-        LocalNotificationCore.setupChannel();
-
-        // update the iOS foreground notification presentation options to allow headsup notificaiton.
-        await FirebaseMessaging.instance
-            .setForegroundNotificationPresentationOptions(
+    try {
+      NotificationSettings settings = await FirebaseMessaging.instance
+          .requestPermission(
           alert: true,
           badge: true,
-          sound: true,
-        );
-      }
+          provisional: false,
+          sound: true
+      );
 
-      isFlutterLocalNotificationsInitialized = true;
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        String? token;
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+
+        if (FirebaseAuth.instance.currentUser != null) {
+          if (kIsWeb) {
+            token = await FirebaseMessaging.instance.getToken(vapidKey: WEB_PUSH_CERTIFICATE);
+            await FirebaseFirestore.instance.collection('users')
+                .doc(userId)
+                .update({'webToken': token});
+          } else {
+            token = await FirebaseMessaging.instance.getToken();
+            print(token);
+            await FirebaseFirestore.instance.collection('users')
+                .doc(userId)
+                .update({'token': token});
+          }
+        }
+
+        // print(token);
+
+        if (!(kIsWeb) && userId != null) {
+          // create Android Notification Channel.
+          LocalNotificationCore.setupChannel();
+
+          // update the iOS foreground notification presentation options to allow headsup notificaiton.
+          await FirebaseMessaging.instance
+              .setForegroundNotificationPresentationOptions(
+            alert: true,
+            badge: true,
+            sound: true,
+          );
+        }
+
+        isFlutterLocalNotificationsInitialized = true;
+      }
+    } catch (e) {
+      return;
     }
   }
 

@@ -69,7 +69,7 @@ abstract class IAuthFacade {
 
   /// User Account Profile update methods ///
 
-  Future<Either<AuthFailure, Unit>> updateUserProfile({required UserProfileModel profile, String? profileImageUrl, String? photoIDUrl, String? photoSelfieUrl});
+  Future<Either<AuthFailure, Unit>> updateUserProfile({required UserProfileModel profile, ImageUpload? profileImageData, String? photoIDUrl, String? photoSelfieUrl});
 
   Future<Either<AuthFailure, Unit>> updateProfileVerification({required UserProfileModel profile});
 
@@ -78,6 +78,8 @@ abstract class IAuthFacade {
   Future<Either<AuthFailure, Unit>> updateUserProfileNotifications({required ProfileNotificationItems settings});
 
   Future<Either<AuthFailure, Unit>> updateDefaultPaymentMethod({required UserProfileModel profile});
+
+  Future<Either<AuthFailure, Unit>> deleteCurrentUserAccount();
 
   /// *** PROFILE WATCHER EVENTS *** ///
 

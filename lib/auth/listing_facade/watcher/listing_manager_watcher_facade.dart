@@ -97,3 +97,40 @@ class ListingManagerWatcherFacade implements LMWatcherFacade {
   }
 }
 
+
+
+class ListingFacade {
+
+  ListingFacade._privateConstructor() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      firebaseUser = user;
+    });
+  }
+
+  /// Current logged in user in Firebase. Does not update automatically.
+  /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
+  User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+  /// Gets proper [FirebaseFirestore] instance.
+  FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
+
+  static final ListingFacade instance = ListingFacade._privateConstructor();
+
+  Future<ListingManagerForm?> getListingManagerItem({required String listingId}) async {
+    var query = getFirebaseFirestore().collection('listing_directory').doc(listingId);
+    try {
+
+      final reservation = await query.get();
+
+      return (reservation.data() != null) ? processListingItem(reservation) : null;
+    } catch (e) {
+      return null;
+    }
+
+  }
+
+  ListingManagerForm processListingItem(DocumentSnapshot<Map<String, dynamic>> query) {
+    return ListingManagerFormDto.fromJson(query.data()!).toDomain();
+  }
+
+}

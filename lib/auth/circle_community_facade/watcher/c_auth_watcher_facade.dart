@@ -12,36 +12,36 @@ class CommunityWatcherFacade implements CAuthWatcherFacade {
     );
 
   @override
-  Stream<Either<CommunityProfileFailure, List<UniqueId>>> watchLinkedReservationCommunities({required UniqueId reservationId}) async* {
+  Stream<Either<ProfileValueFailure, List<UniqueId>>> watchLinkedReservationCirclesCommunities({required UniqueId reservationId}) async* {
      try {
        
        yield* _fireStore.collection('activity_directory').doc(reservationId.getOrCrash()).collection('linked_community').snapshots().map(
                (event) {
                  if (event.docs.isNotEmpty) {
-                   return right<CommunityProfileFailure, List<UniqueId>>(event.docs.map((form) => UniqueId.fromUniqueString(form.id)).toList());
+                   return right<ProfileValueFailure, List<UniqueId>>(event.docs.map((form) => UniqueId.fromUniqueString(form.id)).toList());
            }
-           return left(const CommunityProfileFailure.communityServerError(serverResponse: 'no communities found'));
+           return left(const ProfileValueFailure.profileServerError(serverResponse: 'no communities found'));
          });
      } catch (e) {
-        yield left(CommunityProfileFailure.communityServerError(serverResponse: e.toString()));
+        yield left(ProfileValueFailure.profileServerError(serverResponse: e.toString()));
      }
   }
 
 
   @override
-  Stream<Either<CommunityProfileFailure, CommunityProfileItem>> watchCurrentCommunity({required UniqueId communityId}) {
+  Stream<Either<ProfileValueFailure, CircleProfileItemDto>> watchCurrentCircleCommunity({required UniqueId communityId}) {
     // TODO: implement watchCurrentCommunity
     throw UnimplementedError();
   }
 
   @override
-  Stream<Either<CommunityProfileFailure, List<CommunityProfileItem>>> watchCurrentUsersCreatedCommunities() {
+  Stream<Either<ProfileValueFailure, List<CircleProfileItemDto>>> watchCurrentUsersCreatedCircleCommunities() {
     // TODO: implement watchCurrentUsersCreatedCommunities
     throw UnimplementedError();
   }
 
   @override
-  Stream<Either<CommunityProfileFailure, List<UniqueId>>> watchCurrentUserJoinedCommunities() {
+  Stream<Either<ProfileValueFailure, List<UniqueId>>> watchCurrentUserJoinedCircleCommunities() {
     // TODO: implement watchCurrentUserJoinedCommunities
     throw UnimplementedError();
   }

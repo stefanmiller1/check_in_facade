@@ -12,7 +12,7 @@ class AttendeeFormFacade implements ATTAuthFacade {
       this._fireStore,
       this._firebaseStorage,
       this._notificationFacade,
-      this._firebaseMessaging
+      this._firebaseMessaging,
       );
 
 
@@ -25,36 +25,6 @@ class AttendeeFormFacade implements ATTAuthFacade {
 
 
     try {
-
-      ///upload attendee profile item
-      if (attendeeItem.attendeeType == AttendeeType.vendor) {
-        if (attendeeItem.contactStatus == ContactStatus.joined) {
-          if (attendeeItem.eventMerchantVendorProfile != null && attendeeItem.eventMerchantVendorProfile!.vendorLogo != null) {
-            final Uint8List imageData = attendeeItem.eventMerchantVendorProfile!.vendorLogo!;
-            /// store the file
-            final urlId = attendee.attendeeOwnerId;
-            final reference = _firebaseStorage.ref('activity_directory').child(attendeeItem.reservationId.getOrCrash()).child('vendors');
-            await reference.child(urlId.getOrCrash()).putData(imageData);
-
-            /// retrieve link to file stored in firebase storage
-            final uri = await reference.child(urlId.getOrCrash()).getDownloadURL();
-
-            final EventMerchantVendorProfile eventVendorMerchant = EventMerchantVendorProfile(
-              brandName: attendeeItem.eventMerchantVendorProfile!.brandName,
-              backgroundInfo: attendeeItem.eventMerchantVendorProfile!.backgroundInfo,
-              uriImage: uri
-            );
-
-            attendee = attendee.copyWith(
-                eventMerchantVendorProfile: eventVendorMerchant
-            );
-          } else {
-          /// could not create vendor attendee
-          return left(const AttendeeFormFailure.attendeeVendorCouldNotBeCreated());
-          }
-        }
-      }
-
 
       /// check [ActivityManagerForm] for attendee limits and rules if activity form exists.
       if (activityForm != null) {
@@ -87,6 +57,8 @@ class AttendeeFormFacade implements ATTAuthFacade {
       if (attendeeItem.contactStatus == ContactStatus.joined) {
           await _notificationFacade.createJoinedReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
       }
+
+
 
       final attendeeFormDto = AttendeeItemDto.fromDomain(attendee).toJson();
       final activityDoc = await _fireStore.activityDocument(attendee.reservationId.getOrCrash());
@@ -280,6 +252,20 @@ class AttendeeFormFacade implements ATTAuthFacade {
           final reference = _firebaseStorage.ref('activity_directory').child(attendeeItem.reservationId.getOrCrash()).child('vendors');
           await reference.child(attendeeItem.attendeeOwnerId.getOrCrash()).delete();
           break;
+        case AttendeeType.free:
+          // TODO: Handle this case.
+        case AttendeeType.tickets:
+          // TODO: Handle this case.
+        case AttendeeType.pass:
+          // TODO: Handle this case.
+        case AttendeeType.instructor:
+          // TODO: Handle this case.
+        case AttendeeType.partner:
+          // TODO: Handle this case.
+        case AttendeeType.organization:
+          // TODO: Handle this case.
+        case AttendeeType.interested:
+          // TODO: Handle this case.
       }
 
       final activityDoc = await _fireStore.activityDocument(attendeeItem.reservationId.getOrCrash());
@@ -305,7 +291,59 @@ class AttendeeFormFacade implements ATTAuthFacade {
       }
       return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }
+  }
 
+
+  @override
+  Future<Either<AttendeeFormFailure, Unit>> updateInterestedAttendee({required String reservationId, required String? userId}) async {
+    try {
+      if (userId == null) {
+        return left(AttendeeFormFailure.attendeeFirebaseError(failed: 'not logged in'));
+      }
+
+      final reference = await _fireStore.collection('activity_directory').doc(reservationId).collection('attendees').doc(userId).get();
+      final AttendeeItem? getAttendee = (reference.data() != null) ? AttendeeItemDto.fromFireStore(reference.data()!).toDomain() : null;
+      final attendeeProfileDoc = _fireStore.collection('users').doc(userId);
+      final profileAttReservations = attendeeProfileDoc.collection('attending').doc(reservationId);
+
+      print('looking ${getAttendee}');
+      if (getAttendee != null) {
+        Map<String, bool> interestedValue;
+
+        if (getAttendee.isInterested == false || getAttendee.isInterested == null) {
+          interestedValue = {'isInterested': true};
+        } else {
+          interestedValue = {'isInterested': false};
+        }
+
+        print(interestedValue);
+
+        await _fireStore.collection('activity_directory').doc(reservationId).collection('attendees').doc(userId).update(interestedValue);
+        await profileAttReservations.update(interestedValue);
+
+      } else {
+
+        final AttendeeItem attendeeItem = AttendeeItem(
+            attendeeId: UniqueId(),
+            attendeeOwnerId: UniqueId.fromUniqueString(userId),
+            reservationId: UniqueId.fromUniqueString(reservationId),
+            cost: '',
+            paymentStatus: PaymentStatusType.noStatus,
+            attendeeType: AttendeeType.interested,
+            paymentIntentId: '',
+            isInterested: true,
+            dateCreated: DateTime.now()
+        );
+        final attendeeDto = AttendeeItemDto.fromDomain(attendeeItem).toJson();
+
+        await _fireStore.collection('activity_directory').doc(reservationId).collection('attendees').doc(userId).set(attendeeDto);
+        await profileAttReservations.set(attendeeDto);
+      }
+
+      return right(unit);
+    } catch (e) {
+      return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
+    }
   }
 }
 

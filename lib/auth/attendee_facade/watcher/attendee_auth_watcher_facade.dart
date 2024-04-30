@@ -52,7 +52,7 @@ class AttendanceAuthWatcherFacade implements ATTAuthWatcherFacade {
   }
 
   @override
-  Stream<Either<AttendeeFormFailure, List<AttendeeItem>>> watchUserProfileAttending() async* {
+  Stream<Either<AttendeeFormFailure, List<AttendeeItem>>> watchUserProfileAttending({required ContactStatus? status, required AttendeeType? attendingType, required int? limit}) async* {
 
     try {
 
@@ -62,7 +62,24 @@ class AttendanceAuthWatcherFacade implements ATTAuthWatcherFacade {
         yield left(const AttendeeFormFailure.attendeeServerError(failed: 'not signed in'));
       }
 
-      yield* _fireStore.collection('users').doc(currentUser!.uid).collection('attending').snapshots().map(
+      var attendeeRef = _fireStore.collection('users')
+          .doc(currentUser!.uid)
+          .collection('attending')
+          .orderBy('createdAtSTC', descending: true);
+
+        if (status != null) {
+          attendeeRef = attendeeRef.where('contactStatus', isEqualTo: status.toString());
+        }
+
+        if (attendingType != null) {
+          attendeeRef = attendeeRef.where('attendeeType', isEqualTo: attendingType.toString());
+        }
+
+        if (limit != null) {
+          attendeeRef = attendeeRef.limit(limit);
+        }
+
+          yield* attendeeRef.snapshots().map(
               (event) {
           if (event.docs.isNotEmpty) {
             return right<AttendeeFormFailure, List<AttendeeItem>>(event.docs.map((form) => AttendeeItemDto.fromFireStore(form.data()).toDomain()).toList());
@@ -80,11 +97,14 @@ class AttendanceAuthWatcherFacade implements ATTAuthWatcherFacade {
   @override
   Stream<Either<AttendeeFormFailure, List<AttendeeItem>>> watchAllAttendees({required String activityId}) async* {
     try {
+
       yield* _fireStore
           .collection('activity_directory')
           .doc(activityId)
           .collection('attendees')
           .snapshots().map((event) {
+
+
 
         if (event.docs.isNotEmpty) {
           return right<AttendeeFormFailure, List<AttendeeItem>>(event.docs.map((form) => AttendeeItemDto.fromFireStore(form.data()).toDomain()).toList());
@@ -122,5 +142,87 @@ class AttendanceAuthWatcherFacade implements ATTAuthWatcherFacade {
       yield left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }
   }
+
+
+  @override
+  Stream<Either<AttendeeFormFailure, List<AttendeeItem>>> watchCurrentUsersAttendance({required String userId, required ContactStatus status, required AttendeeType type, required int limit}) async* {
+
+    try {
+
+      yield* _fireStore
+          .collection('users')
+          .doc(userId)
+          .collection('attending')
+          .where('attendeeType', isEqualTo: type)
+          .limit(limit)
+          .snapshots().map((event) {
+
+        if (event.docs.isNotEmpty) {
+          return right<AttendeeFormFailure, List<AttendeeItem>>(event.docs.map((form) => AttendeeItemDto.fromFireStore(form.data()).toDomain()).toList());
+        }
+        return left(const AttendeeFormFailure.attendeeServerError(failed: 'no attendees were found'));
+      });
+
+      yield left(AttendeeFormFailure.attendeeServerError(failed: 'not found'));
+    } catch (e) {
+      yield left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
+    }
+  }
 }
 
+
+
+
+class AttendeeFacade {
+
+  AttendeeFacade._privateConstructor() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      firebaseUser = user;
+    });
+  }
+
+  /// Current logged in user in Firebase. Does not update automatically.
+  /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
+  User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+  /// Gets proper [FirebaseFirestore] instance.
+  FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
+
+  static final AttendeeFacade instance = AttendeeFacade._privateConstructor();
+
+  Future<List<AttendeeItem>> getCurrentUserAttending({
+    required ContactStatus? status,
+    required AttendeeType? attendingType,
+    required int? limit}) async {
+
+    if (firebaseUser == null) {
+      return Future.error('Not Signed In');
+    }
+
+    var query = getFirebaseFirestore().collection('users')
+        .doc(firebaseUser!.uid)
+        .collection('attending')
+        .orderBy('createdAtSTC', descending: true);
+
+    if (status != null) {
+      query = query.where('contactStatus', isEqualTo: status.toString());
+    }
+
+    if (attendingType != null) {
+      query = query.where('attendeeType', isEqualTo: attendingType.toString());
+    }
+
+    if (limit != null) {
+      query = query.limit(limit);
+    }
+
+    final attendingList = await query.get();
+
+    return attendingList.docs.map((e) => processAttendingItem(e)).toList();
+  }
+
+  AttendeeItem processAttendingItem(DocumentSnapshot<Map<String, dynamic>> query) {
+    return AttendeeItemDto.fromJson(query.data()!).toDomain();
+  }
+
+}

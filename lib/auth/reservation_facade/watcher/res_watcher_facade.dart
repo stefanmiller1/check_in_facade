@@ -189,6 +189,8 @@ class ReservationFacade {
   /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
   User? firebaseUser = FirebaseAuth.instance.currentUser;
 
+  DocumentSnapshot? lastDoc = null;
+
   /// Gets proper [FirebaseFirestore] instance.
   FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
 
@@ -196,7 +198,7 @@ class ReservationFacade {
   static final ReservationFacade instance = ReservationFacade._privateConstructor();
 
   Future<int> getNumberOfReservationsBooked({
-  required String listingId,
+  required String? listingId,
   required List<ReservationSlotState> statusType,
   required int? hoursTimeAhead,
   required int? hoursTimeBefore,
@@ -205,7 +207,9 @@ class ReservationFacade {
     var query = getFirebaseFirestore().collection('reservation_directory')
         .where('reservationState', whereIn: statusType.map((e) => e.toString()).toList());
 
-    query = query.where('instanceId', isEqualTo: listingId);
+    if (listingId != null) {
+      query = query.where('instanceId', isEqualTo: listingId);
+    }
 
     if (hoursTimeAhead != null && hoursTimeBefore == null) {
       /// exclude any reservation that are greater than x hours from now
@@ -220,6 +224,49 @@ class ReservationFacade {
     final numberOfReservations = await query.count().get();
 
     return numberOfReservations.count ?? 0;
+}
+
+
+Future<(List<ReservationItem>, DocumentSnapshot?)> getAllReservations({
+  required List<ReservationSlotState> statusType,
+  required int? hoursTimeAhead,
+  required int? hoursTimeBefore,
+  required int? limit,
+  required DocumentSnapshot<Object?>? startAfterDoc
+  }) async {
+
+  var query = getFirebaseFirestore().collection('reservation_directory')
+      .where('reservationState', whereIn: statusType.map((e) => e.toString()).toList());
+
+  query = query.where('isActivity', isEqualTo: true);
+
+  if (hoursTimeAhead != null && hoursTimeBefore == null) {
+    /// exclude any reservation that are greater than x hours from now
+    query = query.where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead)).millisecondsSinceEpoch);
+  }
+
+  if (hoursTimeBefore != null && hoursTimeAhead == null) {
+    /// exclude any reservations that are less than x number of hours
+    query = query.where('lastSlotTimestamp', isGreaterThan: DateTime.now().subtract(Duration(hours: hoursTimeBefore)).millisecondsSinceEpoch);
+  }
+
+
+  if (limit != null) {
+    query = query.limit(limit);
+  }
+
+
+  final reservations = startAfterDoc != null
+      ? await query.startAfterDocument(startAfterDoc).get()
+      : await query.get();
+
+
+  final finalDoc = reservations.docs.length == limit ? reservations.docs.last : null;
+
+  return (
+    reservations.docs.map((e) => processReservationItem(e)).toList(),
+    finalDoc
+  );
 }
 
 
@@ -245,10 +292,25 @@ Future<List<ReservationItem>> getReservationsBooked({
     query = query.where('lastSlotTimestamp', isGreaterThan: DateTime.now().subtract(Duration(hours: hoursTimeBefore)).millisecondsSinceEpoch);
   }
 
+
+
   final reservations = await query.get();
 
   return reservations.docs.map((e) => processReservationItem(e)).toList();
 }
+
+Future<ReservationItem?> getReservationItem({required String resId}) async {
+    var query = getFirebaseFirestore().collection('reservation_directory').doc(resId);
+    try {
+
+      final reservation = await query.get();
+
+      return (reservation.data() != null) ? processReservationItem(reservation) : null;
+    } catch (e) {
+      return null;
+    }
+}
+
 
 ReservationItem processReservationItem(DocumentSnapshot<Map<String, dynamic>> query) {
   return ReservationItemDto.fromJson(query.data()!).toDomain();
