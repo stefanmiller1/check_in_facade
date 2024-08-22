@@ -97,7 +97,7 @@ class NotificationUpdaterFacade implements NAuthFacade {
        final reservation = await _fireStore.collection('reservation_directory').doc(reservationId).get();
        final resOwnerId = reservation['reservationOwnerId'];
 
-       /// save notification is users profile
+       /// save notification in users profile
        final resOwnerDoc = _fireStore.collection('users').doc(resOwnerId);
        resOwnerDoc.collection('notifications').doc(notificationId.getOrCrash()).set(notificationDto);
 
@@ -324,6 +324,8 @@ class NotificationUpdaterFacade implements NAuthFacade {
   }
 
 
+
+
   @override
   Future<Either<ReservationFormFailure, Unit>> createReservationCreatedNotification({required String facilityOwner}) {
     // TODO: implement createReservationCreatedNotification
@@ -348,6 +350,47 @@ class NotificationUpdaterFacade implements NAuthFacade {
     // TODO: implement createMessageToReservationOwnerNotification
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<AttendeeFormFailure, Unit>> attendeeVendorUpdateNotification({required String reservationId, required String? activityTitle, required AttendeeItem attendee}) async {
+    if (_firebaseAuth.currentUser == null) {
+      return right(unit);
+    }
+
+    try {
+
+      final UniqueId notificationId = UniqueId();
+      final notificationDto = AccountNotificationItemDto(notificationId: notificationId.getOrCrash(), isRead: false, receivedAtTimeStamp: DateTime.now().millisecondsSinceEpoch, sentFromId: _firebaseAuth.currentUser!.uid, notificationType: AccountNotificationType.activityAttendee.toString(), reservationId: reservationId).toJson();
+
+
+      /// save notification is users profile
+      final resOwnerDoc = _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash());
+      resOwnerDoc.collection('notifications').doc(notificationId.getOrCrash()).set(notificationDto);
+
+
+      /// get res owner token for sending notification
+      final userInfo = await _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash()).get();
+      /// send notification to attendee if mobile or web token exists
+      sendPushNotification(
+          userInfo.data().toString().contains('token') ? userInfo['token'] : null,
+          userInfo.data().toString().contains('webToken') ? userInfo['webToken'] : null,
+          <String, dynamic>{
+            'reservationId': reservationId,
+            'status': 'done',
+            'link': '/${DashboardMarker.reservations.name.toString()}/reservation/$reservationId'
+          },
+          '/${DashboardMarker.reservations.name.toString()}/reservation/$reservationId',
+          '${activityTitle} Updated Your Application!',
+          'Click here to take a look.'
+      );
+
+
+      return right(unit);
+    } catch (e) {
+      return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
+    }
+  }
+
 
 }
 

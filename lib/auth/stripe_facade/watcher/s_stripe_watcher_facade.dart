@@ -53,7 +53,7 @@ class StripeWatcherFacade implements SStripeWatcherFacade {
           final List charges = e['charges']['data'];
           final charge = charges.where((element) => element['outcome']['network_status'] == 'approved_by_network').isNotEmpty ? charges.firstWhere((element) => element['outcome']['network_status'] == 'approved_by_network') : null;
 
-          return PaymentIntent(id: e['id'], status: e['status'], canceled_at: e['canceled_at'], amount: e['amount'], created: e['created'], currency: e['currency'], payment_method: CardItem(paymentId: charge['payment_method'], cardDetails: CardDetails(brand: charge['payment_method_details']['card']['brand'], lastFourNumbers: charge['payment_method_details']['card']['last4'], expMonth: charge['payment_method_details']['card']['exp_month'], expiryYearDate: charge['payment_method_details']['card']['exp_year'])), reservationId: e['metadata']['reservationId'], listingId: e['metadata']['listingId'], receipt_url: charge['receipt_url'], );
+          return PaymentIntent(id: e['id'], status: e['status'], canceled_at: e['canceled_at'], amount: e['amount'], created: e['created'], currency: e['currency'], payment_method: CardItem(paymentId: charge['payment_method'], cardDetails: CardDetails(brand: charge['payment_method_details']['card']['brand'], lastFourNumbers: charge['payment_method_details']['card']['last4'], expMonth: charge['payment_method_details']['card']['exp_month'], expiryYearDate: charge['payment_method_details']['card']['exp_year'])), itemId: e['metadata']['reservationId'], metaData: e['metadata'], receipt_url: charge['receipt_url'], );
 
         }).toList();
 

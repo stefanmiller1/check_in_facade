@@ -45,9 +45,9 @@ abstract class IAuthFacade {
   required String password,
   });
 
-  Future<Either<AuthFailure, Unit>> signInWithGoogle();
+  Future<Either<AuthFailure, bool>> signInWithGoogle();
 
-  Future<Either<AuthFailure, Unit>> signInWithApple();
+  Future<Either<AuthFailure, bool>> signInWithApple();
 
   /// sign-in update methods ///
 
@@ -79,6 +79,8 @@ abstract class IAuthFacade {
 
   Future<Either<AuthFailure, Unit>> updateDefaultPaymentMethod({required UserProfileModel profile});
 
+  Future<Either<AuthFailure, Unit>> updateFirstTimeSignIn();
+
   Future<Either<AuthFailure, Unit>> deleteCurrentUserAccount();
 
   /// *** PROFILE WATCHER EVENTS *** ///
@@ -89,6 +91,7 @@ abstract class IAuthFacade {
   Stream<Either<AuthFailure, UserProfileModel>> watchUserProfile();
   Stream<Either<AuthFailure, UserProfileModel>> watchSelectedUserProfile({required String userId});
   Stream<Either<AuthFailure, List<UserProfileModel>>> watchAllUserProfiles();
+  Stream<Either<AuthFailure, List<UserProfileModel>>> watchAllUsersFromUserList({required List<String> userIds});
 
   Stream<Either<AuthFailure, SocialsItem>> watchUserProfileSocialsSetting({required String userId});
   Stream<Either<AuthFailure, ProfileNotificationItems>> watchUserProfileNotificationSettings({required String userId});

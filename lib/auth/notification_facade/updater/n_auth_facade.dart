@@ -35,12 +35,9 @@ abstract class NAuthFacade {
   /// send notification to post author that post was liked
   Future<Either<ReservationFormFailure, Unit>> createDidLikePostNotification({required Post likedPost});
 
-  /// all [Facility] based notifications
-  ///
 
-  /// send notification to reservation Owner from facilityOwner
-  Future<Either<AttendeeFormFailure, Unit>> createMessageToReservationOwnerNotification({required String facilityOwnerId, required ReservationItem reservation});
-
+  /// all [Attendee] based notifications
+  Future<Either<AttendeeFormFailure, Unit>> attendeeVendorUpdateNotification({required String reservationId, required String? activityTitle, required AttendeeItem attendee});
 
 
 }

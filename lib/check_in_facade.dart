@@ -9,11 +9,16 @@ import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/atte
 import 'package:check_in_domain/domain/misc/attendee_services/attendee_item/attendee_item_dtos.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post.dart';
 import 'package:check_in_domain/domain/auth/reservation_manager/post_dtos.dart';
+import 'package:check_in_domain/domain/misc/attendee_services/form/merchant_vendor/custom_options/mv_custom_options.dart';
+import 'package:check_in_domain/domain/misc/attendee_services/form/merchant_vendor/booth_payments/mv_booth_payments.dart';
+import 'package:check_in_domain/domain/misc/filter_services/vendor_contact_filter_model.dart';
+import 'package:check_in_domain/domain/misc/stripe/business_address_service/stripe_business_address.dart';
+import 'package:check_in_domain/domain/misc/stripe/tax_calculation/stripe_tax_calculation.dart';
+import 'package:check_in_domain/domain/misc/stripe/receipt_services/receipt/receipt_pdf_generator.dart';
 import 'package:check_in_facade/check_in_facade.config.dart';
 import 'package:crypto/crypto.dart';
 
 import 'package:check_in_credentials/check_in_credentials.dart';
-import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -39,6 +44,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
+
 
 
 part 'injection.dart';
@@ -73,6 +79,9 @@ part 'auth/notification_facade/updater/n_auth_facade.dart';
 part 'auth/notification_facade/updater/notification_auth_facade.dart';
 part 'auth/notification_facade/watcher/n_watcher_facade.dart';
 part 'auth/notification_facade/watcher/notification_watcher_facade.dart';
+
+part 'auth/notification_facade/email_updater/email_auth_facade.dart';
+part 'auth/notification_facade/email_updater/e_auth_facade.dart';
 
 part 'auth/chat_facade/firebase_chat_core_config.dart';
 part 'auth/chat_facade/firebase_chat_facade.dart';
@@ -120,3 +129,7 @@ part 'auth/facility_facade/facility_auth_helpers.dart';
 
 part 'auth/map_facade/firebase_map_facade.dart';
 part 'auth/locations_facade/autocomplete_search_facade.dart';
+
+part 'auth/notification_facade/notification_core_config.dart';
+
+part 'un_auth/share_facade/updater/share_facade.dart';

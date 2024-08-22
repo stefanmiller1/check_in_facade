@@ -84,9 +84,11 @@ class ActivityWatcherFacade implements AAuthWatcherFacade {
   Stream<Either<ActivityFormFailure, List<ActivityManagerForm>>> watchAllActivityFormsFromRes({required List<String> reservationIds}) async* {
     try {
 
+      print('FIND THESE ${reservationIds}');
       yield* _fireStore.collection('activity_directory')
               .where('activityFormId', whereIn: reservationIds.toList())
               .snapshots().map((event) {
+                print('found ${event.docs}');
                 if (event.docs.isNotEmpty) {
                   return right<ActivityFormFailure, List<ActivityManagerForm>>(event.docs.map(
                           (form) => ActivityManagerFormDto.fromFireStore(form).toDomain()).toList());

@@ -272,9 +272,9 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
         password: passwordStr,
       );
 
-      await authenticate(email: emailAddressStr,
-          password: passwordStr,
-          urlSegment: 'signInWithPassword');
+      // await authenticate(email: emailAddressStr,
+      //     password: passwordStr,
+      //     urlSegment: 'signInWithPassword');
 
       return right(unit);
     } on FirebaseAuthException catch (e) {
@@ -283,59 +283,79 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
   }
 
   @override
-  Future<Either<AuthFailure, Unit>> signInWithApple() async {
+  Future<Either<AuthFailure, bool>> signInWithApple() async {
 
     try {
 
         final rawOnce = generateNonce();
         final nonce = sha256ofString(rawOnce);
 
-        final appleIdCredential = await SignInWithApple.getAppleIDCredential(
-            scopes: [
-              AppleIDAuthorizationScopes.email,
-              AppleIDAuthorizationScopes.fullName],
-          webAuthenticationOptions: WebAuthenticationOptions(
-              clientId: 'com.cico.checkInWebMobileExplore',
-              redirectUri: Uri.parse('https://cico-8298b.firebaseapp.com/__/auth/handler')
-          ),
-          nonce: nonce
-        );
-
 
         final oAuthProvider = OAuthProvider('apple.com');
-        final credential = oAuthProvider.credential(
-          idToken: appleIdCredential.identityToken,
-          accessToken: appleIdCredential.authorizationCode,
-          rawNonce: rawOnce
-        );
+        late AuthCredential? credential = null;
+        late AuthorizationCredentialAppleID? iosCredential = null;
 
-        final appleCredential = await _firebaseAuth.signInWithCredential(credential);
+        if (kIsWeb) {
+          final result = await _firebaseAuth.signInWithPopup(oAuthProvider);
+          if (result.credential == null) {
+            return left(const AuthFailure.exceptionError('Credentials could not be retrieved'));
+          }
 
+          credential = result.credential!;
 
-        if ((appleCredential.additionalUserInfo?.isNewUser ?? false) && appleCredential.user != null) {
-          print('new user');
-            final givenName = appleIdCredential.givenName;
-            final hasGivenName = givenName != null;
-            final familyName = appleIdCredential.familyName;
-            final hasFamilyName = familyName != null;
-
-            await createUserToFirestore(
-                id: appleCredential.user!.uid,
-                profile: UserProfileModel(
-                    userId: UniqueId.fromUniqueString(appleCredential.user!.uid),
-                    legalName: FirstLastName('${hasGivenName ? givenName : ''}'),
-                    legalSurname: FirstLastName('${hasFamilyName ? '$familyName' : ''}'),
-                    emailAddress: EmailAddress(appleIdCredential.email),
-                    isEmailAuth: appleCredential.user?.emailVerified ?? false,
-                    isPhoneAuth: false,
-                    joinedDate: DateTime.now()
-            ));
-
-            await appleCredential.user?.updateDisplayName('${hasGivenName ? givenName : ''}${hasFamilyName ? ' $familyName' : ''}');
+        } else {
+          iosCredential = await SignInWithApple.getAppleIDCredential(
+              scopes: [
+                AppleIDAuthorizationScopes.email,
+                AppleIDAuthorizationScopes.fullName
+              ],
+              nonce: nonce
+          );
+          credential = oAuthProvider.credential(
+                idToken: iosCredential.identityToken,
+                accessToken: iosCredential.authorizationCode,
+                rawNonce: rawOnce
+            );
 
         }
 
-        return right(unit);
+
+        final appleCredential = await _firebaseAuth.signInWithCredential(credential);
+        final userSnapshot = await _fireStore.collection('users').doc(appleCredential.user?.uid).get();
+
+
+        if (appleCredential.additionalUserInfo?.isNewUser == true || userSnapshot.data()?['emailAddress'] == null) {
+
+          final givenName = appleCredential.user?.displayName ?? iosCredential?.givenName ?? 'Anon';
+          final hasGivenName = givenName != null;
+          final familyName = appleCredential.additionalUserInfo?.username ?? iosCredential?.familyName ?? 'Anon';
+          final hasFamilyName = familyName != null;
+
+          await createUserToFirestore(
+              id: appleCredential.user!.uid,
+              profile: UserProfileModel(
+                  userId: UniqueId.fromUniqueString(appleCredential.user!.uid),
+                  legalName: FirstLastName('${hasGivenName ? givenName : 'Anon'}'),
+                  legalSurname: FirstLastName('${hasFamilyName ? '$familyName' : 'Anon'}'),
+                  emailAddress: EmailAddress(appleCredential.user?.email ?? 'private'),
+                  isEmailAuth: appleCredential.user?.emailVerified ?? false,
+                  isPhoneAuth: false,
+                  hasSignedIn: true,
+                  joinedDate: DateTime.now()
+            )
+          );
+
+          await appleCredential.user?.updateDisplayName('${hasGivenName ? givenName : ''}${hasFamilyName ? ' $familyName' : ''}');
+          return right(false);
+        }
+
+
+        if (userSnapshot.data()?['hasSignedIn'] != true) {
+          return right(false);
+        }
+
+
+        return right(true);
     } on FirebaseAuthException catch (e) {
       return left(getErrorMessageFromFirebaseException(e));
     } on SignInWithAppleAuthorizationException catch (e) {
@@ -345,13 +365,33 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
       return left(AuthFailure.exceptionError(e.message));
     }
     catch (e) {
+
+      print('uuhh ohh ${e.toString()}');
       return left(AuthFailure.exceptionError(e.toString()));
     }
-
   }
 
   @override
-  Future<Either<AuthFailure, Unit>> signInWithGoogle() async {
+  Future<Either<AuthFailure, Unit>> updateFirstTimeSignIn() async {
+    try {
+
+      if (_firebaseAuth.currentUser?.uid == null) {
+        return left(AuthFailure.serverError());
+      }
+
+      final userRef = _fireStore.collection('users').doc(_firebaseAuth.currentUser?.uid);
+      userRef.update({'hasSignedIn': true});
+
+      return right(unit);
+    } catch (e) {
+      return left(AuthFailure.exceptionError(e.toString()));
+    }
+  }
+
+
+
+  @override
+  Future<Either<AuthFailure, bool>> signInWithGoogle() async {
       try {
 
         if (kIsWeb) {
@@ -366,17 +406,19 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
                     legalName: FirstLastName(resultWeb.user!.displayName),
                     legalSurname: FirstLastName(''),
                     emailAddress: EmailAddress(resultWeb.user!.email),
+                    photoUri: resultWeb.user?.photoURL,
                     isEmailAuth: resultWeb.user?.emailVerified ?? false,
                     isPhoneAuth: false,
+                    hasSignedIn: true,
                     joinedDate: DateTime.now()
               )
             );
+            return right(false);
           }
-
-          return right(unit);
+          return right(true);
         }
 
-        print('TRYING');
+
 
         GoogleSignIn googleSignIn = GoogleSignIn();
 
@@ -398,8 +440,9 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
 
         final result = await _firebaseAuth.signInWithCredential(credential);
+        final userSnapshot = await _fireStore.collection('users').doc(result.user?.uid).get();
 
-        if ((result.additionalUserInfo?.isNewUser ?? false) && result.user != null) {
+        if ((result.additionalUserInfo?.isNewUser ?? false) && result.user != null || userSnapshot.data()?['emailAddress'] == null) {
           await createUserToFirestore(
               id: result.user!.uid,
               profile: UserProfileModel(
@@ -408,18 +451,25 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
                   legalSurname: FirstLastName(''),
                   emailAddress: EmailAddress(result.user!.email),
                   isEmailAuth: result.user?.emailVerified ?? false,
+                  photoUri: result.user?.photoURL,
                   isPhoneAuth: false,
+                  hasSignedIn: true,
                   joinedDate: DateTime.now()
-            )
-          );
+              )
+            );
+          return right(false);
         }
 
-        return right(unit);
+
+        if (userSnapshot.data()?['hasSignedIn'] != true) {
+          return right(false);
+        }
+
+        return right(true);
       } on FirebaseAuthException catch (e) {
-        print(e);
         return left(getErrorMessageFromFirebaseException(e));
       } catch (e) {
-        print(e);
+        print('uuhh ohh ${e.toString()}');
         return left(AuthFailure.exceptionError(e.toString()));
       }
   } 
@@ -751,21 +801,42 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
       final providerData = _firebaseAuth.currentUser?.providerData.first;
       final currentUserId = _firebaseAuth.currentUser?.uid;
 
-      UserCredential? credential;
+      late UserCredential? credential = null;
 
-      if (AppleAuthProvider().providerId == providerData?.providerId) {
-        credential = await _firebaseAuth.currentUser?.reauthenticateWithProvider(AppleAuthProvider());
-      } else if (GoogleAuthProvider().providerId == providerData?.providerId) {
-        credential = await _firebaseAuth.currentUser?.reauthenticateWithProvider(GoogleAuthProvider());
+      if (currentUserId == null || providerData == null) {
+        return left(const AuthFailure.exceptionError('No current user found.'));
       }
 
-      if (currentUserId != null && credential != null) {
-        await _fireStore.collection('users').doc(currentUserId).delete();
-        await _firebaseStorage.ref('user').child(currentUserId).delete();
-        await _firebaseAuth.currentUser?.delete();
+      if (kIsWeb) {
+          if (AppleAuthProvider().providerId == providerData.providerId) {
+            await _firebaseAuth.currentUser?.reauthenticateWithPopup(OAuthProvider('apple.com'));
+          } else if (GoogleAuthProvider().providerId == providerData.providerId) {
+            await _firebaseAuth.currentUser?.reauthenticateWithPopup(GoogleAuthProvider());
+          } else {
+            return left(const AuthFailure.exceptionError('Could not verify your credentials?'));
+          }
       } else {
-        return left(AuthFailure.exceptionError('Could not verify your credentials?'));
+        if (AppleAuthProvider().providerId == providerData.providerId) {
+          credential = await _firebaseAuth.currentUser?.reauthenticateWithProvider(AppleAuthProvider());
+        } else if (GoogleAuthProvider().providerId == providerData.providerId) {
+          credential = await _firebaseAuth.currentUser?.reauthenticateWithProvider(GoogleAuthProvider());
+        }
+
+        if (credential == null) {
+          return left(const AuthFailure.exceptionError('Could not verify your credentials?'));
+        }
       }
+
+    
+
+      await _fireStore.collection('users').doc(currentUserId).delete();
+
+      final storageRef = await _firebaseStorage.ref('user').child(currentUserId);
+      try {
+        await storageRef.delete();
+      } catch (e) {
+      }
+      await _firebaseAuth.currentUser?.delete();
 
       return right(unit);
     } catch (e) {
@@ -782,16 +853,16 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
     try {
 
-
       final userData = _firebaseAuth.currentUser;
 
-        yield* _fireStore.collection('users')
-            .doc(userData?.uid)
-            .snapshots()
-            .map((snapshot) => (snapshot.exists) ?
-        right(UserProfileItemDto.fromFireStore(snapshot).toDomain()) :
-        left(const AuthFailure.profileNotFound()));
+        final user = await _fireStore.collection('users')
+            .doc(userData?.uid).get();
 
+        if (user.exists == false) {
+          yield left(const AuthFailure.profileNotFound());
+        }
+
+        yield right(UserProfileItemDto.fromFireStore(user).toDomain());
     } catch (e) {
       yield left(AuthFailure.serverError());
     }
@@ -802,13 +873,14 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
     try {
 
-      yield* _fireStore.collection('users')
-          .doc(userId)
-          .snapshots()
-          .map((snapshot) => snapshot.exists ?
-      right(UserProfileItemDto.fromFireStore(snapshot).toDomain()) :
-      left(AuthFailure.profileNotFound())
-      );
+      final user = await _fireStore.collection('users')
+          .doc(userId).get();
+
+      if (user.exists == false) {
+        yield left(const AuthFailure.profileNotFound());
+      }
+
+      yield right(UserProfileItemDto.fromFireStore(user).toDomain());
     } catch (e) {
       yield left(AuthFailure.serverError());
     }
@@ -838,6 +910,25 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
       yield left(AuthFailure.serverError());
     }
   }
+
+  @override
+  Stream<Either<AuthFailure, List<UserProfileModel>>> watchAllUsersFromUserList({required List<String> userIds}) async* {
+    try {
+
+      List<UserProfileModel> retrievedProfiles = [];
+      // yield* _fireStore.collection('users').
+      for (String userId in userIds) {
+        final DocumentSnapshot<Map<String, dynamic>> userDoc = await _fireStore.collection('users').doc(userId).get();
+        final UserProfileModel user = UserProfileItemDto.fromFireStore(userDoc).toDomain();
+        retrievedProfiles.add(user);
+      }
+
+      yield right(retrievedProfiles);
+    } catch (e) {
+      yield left(AuthFailure.serverError());
+    }
+  }
+
 
 
   @override
@@ -960,6 +1051,7 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
 
 
+
   // @override
   // Stream<List<UserProfileModel>> searchFirebaseUsersProfile({required String query}) async* {
   //
@@ -1023,4 +1115,47 @@ AuthFailure getErrorMessageFromFirebaseException(FirebaseAuthException e) {
     default:
       return AuthFailure.serverError();
   }
+}
+
+
+
+class UserProfileFacade {
+
+  UserProfileFacade._privateConstructor() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      firebaseUser = user;
+    });
+  }
+
+  /// Current logged in user in Firebase. Does not update automatically.
+  /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
+  User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+  /// Gets proper [FirebaseFirestore] instance.
+  FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
+
+  static final UserProfileFacade instance = UserProfileFacade._privateConstructor();
+
+  Future<UserProfileModel?> getCurrentUserProfile({required String userId}) async {
+
+    try {
+      final userData = await getFirebaseFirestore().collection('users')
+          .doc(userId)
+          .get();
+
+      if (userData.data() == null || userData.exists == false) {
+        return null;
+      }
+
+      return processUserProfile(userData);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  UserProfileModel processUserProfile(DocumentSnapshot<Map<String, dynamic>> query) {
+
+    return UserProfileItemDto.fromJson(query.data()!).toDomain();
+  }
+
 }

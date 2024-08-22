@@ -11,6 +11,13 @@ abstract class SStripeFacade {
     required UserProfileModel profile
   });
 
+  Future<Either<AuthFailure, Unit>> updateStripeAccountSettingsLink({
+    required UserProfileModel profile
+  });
+
+  Future<Either<AuthFailure, Unit>> deleteStripeConnectAccountLink({
+    required UserProfileModel profile
+  });
 
   /// create new stripe payment
   Future<Either<PaymentMethodValueFailure, StringStringItems>> processAndConfirmPaymentAsDirectCharge({
@@ -24,15 +31,38 @@ abstract class SStripeFacade {
     required String? description,
   });
 
+  /// create on hold stripe payment
+  Future<Either<PaymentMethodValueFailure, List<PaymentIntent>>> processAndHoldPayment({
+    required UserProfileModel userProfile,
+    required String? stripeSellerAccountId,
+    required UniqueId activityId,
+    required List<MVBoothPayments> amounts,
+    required String currency,
+    required String paymentMethod,
+    required String? description,
+    required StripeTaxRateDetails? taxRateDetail,
+    required String? taxCalculationId
+});
+
+  /// capture payment intent
+  Future<Either<PaymentMethodValueFailure, List<PaymentIntent>>> processAndCapturePayments({
+    required List<PaymentIntent> payments
+  });
+
+  /// cancel on hold payment intent
+  Future<Either<PaymentMethodValueFailure, List<PaymentIntent>>> cancelPaymentIntent({
+    required List<PaymentIntent> payments
+  });
+
   /// confirm Stripe payment intent
   Future<Either<PaymentMethodValueFailure, StringStringItems>> confirmExistingPaymentIntent({
     required String paymentIntentId
   });
 
   /// refund existing stripe payment
-  Future<Either<PaymentMethodValueFailure, StringStringItems>> refundExistingStripePayment({
-    required String refundAmount,
-    required String paymentIntent
+  Future<Either<PaymentMethodValueFailure, List<StripeRefundModel>>> refundExistingStripePayment({
+    required List<PaymentIntent> payments,
+    required String? refundAmount
   });
 
   /// create and save ne Stripe card payment method

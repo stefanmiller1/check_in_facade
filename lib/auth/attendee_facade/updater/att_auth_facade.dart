@@ -5,8 +5,10 @@ abstract class ATTAuthFacade {
 
   Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({
     required AttendeeItem attendeeItem,
+    required UserProfileModel activityOwner,
     required ActivityManagerForm? activityForm,
-    required String? paymentIntentId
+    required String? paymentIntentId,
+    required List<PaymentIntent>? payments
   });
 
   Future<Either<AttendeeFormFailure, Unit>> updateInterestedAttendee({
@@ -41,5 +43,15 @@ abstract class ATTAuthFacade {
     required AttendeeItem attendeeItem,
     required ActivityManagerForm activityForm,
   });
+
+  Future<Either<AttendeeFormFailure, Unit>> updateVendorBoothStatus({
+    required List<VendorContactDetail> attendeeItems,
+    required UserProfileModel activityOwner,
+    required AvailabilityStatus status,
+    required ActivityManagerForm activityForm,
+    required List<PaymentIntent>? payments,
+  });
+
+  // Future<Either<AttendeeFormFailure, Unit>>
 
 }

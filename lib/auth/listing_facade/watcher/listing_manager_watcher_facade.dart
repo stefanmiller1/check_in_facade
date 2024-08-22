@@ -95,6 +95,39 @@ class ListingManagerWatcherFacade implements LMWatcherFacade {
       yield left(ListingFormFailure.listingServerError(failed: e.toString()));
     }
   }
+
+  @override
+  Stream<Either<ListingFormFailure, List<ListingManagerForm>>> watchUsersListingItems({required List<ManagerListingStatusType> status, required String? userId, required bool? isVerified}) async* {
+    try {
+
+      var listingRef = _fireStore.collection('listing_directory')
+          .where('listingProfileService.backgroundInfoServices.listingStatus', whereIn: status.map((e) => e.toString()).toList());
+
+      if (userId != null) {
+        listingRef = listingRef.where('listingProfileService.backgroundInfoServices.listingOwner', isEqualTo: userId);
+      }
+
+      // retrieve only verified locations
+      if (isVerified == true) {
+        listingRef = listingRef.where('listingProfileService.listingLocationSetting.isVerified', isEqualTo: true);
+      }
+
+      yield* listingRef.snapshots().map((event) {
+          if (event.docs.isNotEmpty) {
+            return right<ListingFormFailure, List<ListingManagerForm>>(event.docs.map((listing) => ListingManagerFormDto.fromFireStore(listing).toDomain()).toList());
+          } else {
+            return left(ListingFormFailure.listingsNotFound());
+          }
+        }
+      );
+
+
+      yield left(ListingFormFailure.listingServerError(failed: e.toString()));
+    } catch (e) {
+      print(e);
+      yield left(ListingFormFailure.listingServerError(failed: e.toString()));
+    }
+  }
 }
 
 

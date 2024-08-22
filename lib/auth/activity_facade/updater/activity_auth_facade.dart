@@ -52,6 +52,60 @@ class ActivityFormFacade implements AAuthFacade {
       );
 
 
+      /// update documents in each vendor form application
+      List<VendorMerchantForm> newVendorForms = [];
+      newVendorForms.addAll(newActivityForm.rulesService.vendorMerchantForms ?? []);
+
+      for (VendorMerchantForm vendorForm in newActivityForm.rulesService.vendorMerchantForms ?? []) {
+        /// replace document custom rule option with new MVCustomOption
+        late VendorMerchantForm newVendorForm = vendorForm;
+        late List<MVCustomOption> newOptions = [];
+        newOptions.addAll(newVendorForm.customOptions ?? []);
+
+        late MVCustomOption? newCustomOption = getDocumentRuleOption(vendorForm);
+        late List<DocumentFormOption> documents = [];
+        documents.addAll(getDocumentsList(vendorForm) ?? []);
+
+        for (DocumentFormOption document in documents) {
+            if (document.documentForm.imageToUpload != null) {
+              final metadata = SettableMetadata(contentType: 'application/pdf');
+              final urlId = UniqueId();
+              final reference = _firebaseStorage.ref('activity_directory').child(activityResId.getOrCrash());
+              await reference.child('vendor_form').child(vendorForm.formId.getOrCrash()).child('${urlId.getOrCrash()}.pdf').putData(document.documentForm.imageToUpload!, metadata);
+              /// retrieve link to file
+              final uri = await reference.child('vendor_form').child(vendorForm.formId.getOrCrash()).child('${urlId.getOrCrash()}.pdf').getDownloadURL();
+              final index = documents.indexWhere((element) => element.documentForm.key == document.documentForm.key);
+              final newDocument = DocumentFormOption(documentForm: ImageUpload(key: uri, uriPath: uri), isRequiredOption: document.isRequiredOption);
+              documents.replaceRange(index, index + 1, [newDocument]);
+          }
+        }
+
+        newCustomOption = newCustomOption?.copyWith(
+          customRuleOption: newCustomOption.customRuleOption?.copyWith(
+            customDocumentOptions: documents
+          )
+        );
+
+        if (newVendorForm.customOptions != null && newCustomOption != null) {
+
+          final int customIndex = newVendorForm.customOptions!.indexWhere((element) => element.customRuleOption?.ruleId == newCustomOption?.customRuleOption?.ruleId);
+          newOptions.replaceRange(customIndex, customIndex + 1, [newCustomOption]);
+          newVendorForm = newVendorForm.copyWith(
+              customOptions: newOptions
+          );
+
+          final venIndex = newVendorForms.indexWhere((element) => element.formId == newVendorForm.formId);
+          newVendorForms.replaceRange(venIndex, venIndex + 1, [newVendorForm]);
+        }
+      }
+
+      newActivityForm = newActivityForm.copyWith(
+        rulesService: newActivityForm.rulesService.copyWith(
+          vendorMerchantForms: newVendorForms
+        )
+      );
+
+
       final reservationDoc = await _fireStore.reservationDocument(activityResId.getOrCrash());
       final activityDoc = await _fireStore.activityDocument(activityResId.getOrCrash());
       final activityFormDto = ActivityManagerFormDto.fromDomain(newActivityForm).toJson();
@@ -60,10 +114,17 @@ class ActivityFormFacade implements AAuthFacade {
       await _notificationFacade.createUpdatedReservationActivityNotification(reservationId: activityResId.getOrCrash());
 
       /// update reservation state
-      if (activitySetupComplete(newActivityForm)) {
+      if (activitySetupComplete(newActivityForm) && activityIsPublic(newActivityForm)) {
         reservationDoc.update({'isActivity': true});
       } else {
         reservationDoc.update({'isActivity': false});
+      }
+
+      /// update published vendor form state
+      if (getHasPublishedVendorForms(newActivityForm.rulesService.vendorMerchantForms ?? [])) {
+        reservationDoc.update({'isLookingForVendor': true});
+      } else {
+        reservationDoc.update({'isLookingForVendor': null});
       }
 
       return right(unit);
@@ -171,5 +232,6 @@ class ActivityFormFacade implements AAuthFacade {
 
 
 }
+
 
 

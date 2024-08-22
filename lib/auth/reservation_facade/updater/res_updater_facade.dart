@@ -5,18 +5,18 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
   final FirebaseFirestore _fireStore;
   final FirebaseAuth _firebaseAuth;
-  final FirebaseDynamicLinks _dynamicLinks;
   final FirebaseMessaging _firebaseMessaging;
   final ATTAuthFacade _attendeeFormFacade;
   final NAuthFacade _notificationFacade;
+  final EAuthFacade _emailFacade;
 
   ResUpdaterFacade(
       this._fireStore,
       this._firebaseAuth,
-      this._dynamicLinks,
       this._firebaseMessaging,
       this._attendeeFormFacade,
-      this._notificationFacade
+      this._notificationFacade,
+      this._emailFacade
     );
 
   @override
@@ -113,7 +113,12 @@ class ResUpdaterFacade implements RUpdaterFacade {
       } else {
 
       }
-      // final sendSystemMessage = types.SystemMessage(
+
+      /// send email to admin on new reservation created
+      await _emailFacade.createEmailNotification(sendTo: ['admin@cincout.ca'], template: 'admin_new_reservation_submitted', button_link: null, reference_body_title: completeReservationFormItem.toString(), attachment: null);
+      await _emailFacade.createEmailNotification(sendTo: [_firebaseAuth.currentUser?.email ?? ''], template: 'new_reservation_submitted', button_link: null, reference_body_title: null, attachment: null);
+
+       // final sendSystemMessage = types.SystemMessage(
       //     id: '',
       //     text: 'Reservation Starts on ${DateFormat.yMMMd().format(resSorted.first.selectedDate)} at ${listing.listingProfileService.backgroundInfoServices.listingName.getOrCrash()} be ready to join!');
       // FirebaseChatCore.instance.sendMessage(sendSystemMessage, roomId);
@@ -317,31 +322,32 @@ class ResUpdaterFacade implements RUpdaterFacade {
   @override
   Future<Either<ReservationFormFailure, Uri>> createShareLink({required ReservationItem reservationItem}) async {
 
-    final DynamicLinkParameters parameters = DynamicLinkParameters(
-        uriPrefix: 'https://cico.page.link',
-        link: Uri.parse('https://cincout.ca/reservation/?id=${reservationItem.reservationId.getOrCrash()}'),
-        androidParameters: const AndroidParameters(
-            packageName: 'com.example.check_in_web_mobile_explore',
-            minimumVersion: 1
-        ),
-        iosParameters: const IOSParameters(
-          bundleId: 'com.example.check_in_web_mobile_explore',
-          minimumVersion: '1',
-          // appStoreId: '11111'
-        )
-    );
+    // final DynamicLinkParameters parameters = DynamicLinkParameters(
+    //     uriPrefix: 'https://cico.page.link',
+    //     link: Uri.parse('https://cincout.ca/reservation/?id=${reservationItem.reservationId.getOrCrash()}'),
+    //     androidParameters: const AndroidParameters(
+    //         packageName: 'com.example.check_in_web_mobile_explore',
+    //         minimumVersion: 1
+    //     ),
+    //     iosParameters: const IOSParameters(
+    //       bundleId: 'com.example.check_in_web_mobile_explore',
+    //       minimumVersion: '1',
+    //       // appStoreId: '11111'
+    //     )
+    // );
 
     try {
 
       Uri url;
-      final ShortDynamicLink shortLink = await _dynamicLinks.buildShortLink(parameters);
-      url = shortLink.shortUrl;
+      // final ShortDynamicLink shortLink = await _dynamicLinks.buildShortLink(parameters);
+      // url = shortLink.shortUrl;
 
-      return right(url);
+      return right(Uri());
     } catch (e) {
       return left (ReservationFormFailure.reservationServerError(failed: e.toString()));
     }
   }
+
 
 
   @override
@@ -349,13 +355,12 @@ class ResUpdaterFacade implements RUpdaterFacade {
 
     try {
 
-
       for (AttendeeItem attendee in invitations) {
-        final attendeeFacade = await _attendeeFormFacade.createNewAttendee(attendeeItem: attendee, activityForm: activityForm, paymentIntentId: null);
+        // final attendeeFacade = await _attendeeFormFacade.createNewAttendee(attendeeItem: attendee, activityForm: activityForm, paymentIntentId: null, payments: null);
 
-        if (attendeeFacade.isLeft()) {
-          return left(const AttendeeFormFailure.attendeeServerError(failed: 'error creating attendee'));
-        }
+        // if (attendeeFacade.isLeft()) {
+        //   return left(const AttendeeFormFailure.attendeeServerError(failed: 'error creating attendee'));
+        // }
       }
 
 
