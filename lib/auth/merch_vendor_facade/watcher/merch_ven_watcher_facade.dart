@@ -12,6 +12,10 @@ class MerchVendorAuthWatcherFacade implements MVAuthWatcherFacade {
   @override
   Stream<Either<ProfileValueFailure, List<EventMerchantVendorProfile>>> watchAllEventMerchProfiles({required List<String> profileIds}) async* {
     try {
+      if (profileIds.isEmpty) {
+        yield left(const ProfileValueFailure.profileServerError(serverResponse: 'no profile found'));
+        return;
+      }
 
       yield* _fireStore.collection('vendor_merch_profile').where('profileId', whereIn: profileIds).snapshots().map(
               (event) {
@@ -23,6 +27,7 @@ class MerchVendorAuthWatcherFacade implements MVAuthWatcherFacade {
 
       yield left(const ProfileValueFailure.profileServerError(serverResponse: 'no profile found'));
     } catch (e) {
+      print(e);
       yield left(ProfileValueFailure.profileServerError(serverResponse: e.toString()));
     }
   }
@@ -48,6 +53,7 @@ class MerchVendorAuthWatcherFacade implements MVAuthWatcherFacade {
   @override
   Stream<Either<ProfileValueFailure, List<EventMerchantVendorProfile>>> watchCurrentUsersMerchVendorList({required String userId}) async* {
     try {
+
 
       yield* _fireStore
             .collection('vendor_merch_profile')

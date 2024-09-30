@@ -436,16 +436,19 @@ Future<List<ReservationItem>> getReservationsBooked({
   return reservations.docs.map((e) => processReservationItem(e)).toList();
 }
 
-Future<ReservationItem?> getReservationItem({required String resId}) async {
+Future<ReservationItem> getReservationItem({required String resId}) async {
     var query = getFirebaseFirestore().collection('reservation_directory').doc(resId);
     try {
 
       final reservation = await query.get();
 
-      return (reservation.data() != null) ? processReservationItem(reservation) : null;
+      if (reservation.data() == null) {
+        return Future.error('cannot find reservation');
+      }
+
+      return processReservationItem(reservation);
     } catch (e) {
-      print(e);
-      return null;
+      return Future.error('cannot find reservation');
     }
 }
 

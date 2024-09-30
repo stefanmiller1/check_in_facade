@@ -133,7 +133,8 @@ class StripeFacade implements SStripeFacade {
     required UniqueId activityId,
     required List<MVBoothPayments> amounts,
     required String currency,
-    required String paymentMethod,
+    required DiscountCode? discount,
+    required CardItem paymentMethod,
     required String? description,
     required StripeTaxRateDetails? taxRateDetail,
     required String? taxCalculationId
@@ -178,17 +179,24 @@ class StripeFacade implements SStripeFacade {
 
       for (MVBoothPayments boothPayment in amounts.where((e) => e.selectedId != null).toList()) {
 
-      final int amount = (boothPayment.fee ?? 0) * 100;
+      // Get discountCode if it exists
+      final int discountAmount = discount?.discountAmount ?? 0; // Get discountAmount or default to 0
+      final UniqueId? relatedPurchase = discount?.relatedPurchase; // Get relatedPurchase or null
+
+      // Check if the discountCode is valid (non-null), discountAmount is valid, and relatedPurchase matches boothPayment.selectedId
+      final bool isValidDiscount = discount != null && discountAmount > 0 && (relatedPurchase == null || relatedPurchase == boothPayment.selectedId); // Check relatedPurchase condition
+
+      // final int amount = (boothPayment.fee ?? 0) * 100;
+      final int amount = (isValidDiscount) ? (((boothPayment.fee ?? 0) * (1 - (discountAmount / 100))) * 100).toInt() : ((boothPayment.fee ?? 0) * 100);
       final totalTaxAmount = (amount * taxPercentage).toInt();
       final buyerFee = (amount * CICOBuyerPercentageFee).toInt();
       final buyerFeeTaxAmount = (buyerFee * taxPercentage).toInt();
       final sellerFee = (amount * CICOSellerPercentageFee).toInt();
       final sellerFeeTaxAmount = (sellerFee * taxPercentage).toInt();
 
-
       /// 2. Call API to create paymentIntent with paymentMethod id, Customer id and Reservation details
       final responseData = await functionRef.call(<String, dynamic>{
-        'paymentMethod': paymentMethod,
+        'paymentMethod': paymentMethod.paymentId,
         'stripeSellerAccountId': stripeSellerAccountId,
         'activityId' : activityId.getOrCrash(),
         'itemId': boothPayment.selectedId!.getOrCrash(),
@@ -211,7 +219,7 @@ class StripeFacade implements SStripeFacade {
       paymentIntents.add(PaymentIntent(
           id: responseData.data['paymentIntent'],
           client_secret: responseData.data['client_secret'],
-          payment_method: CardItem(paymentId: paymentMethod, cardDetails: CardDetails.empty()),
+          payment_method: paymentMethod,
           created_at: DateTime.now().millisecondsSinceEpoch,
           amount: amount,
           amount_taxed: totalTaxAmount,
@@ -222,6 +230,7 @@ class StripeFacade implements SStripeFacade {
           itemId: boothPayment.selectedId!.getOrCrash(),
           currency: NumberFormat.simpleCurrency(locale: currency).currencyName?.toLowerCase(),
           stripe_tax_detail: taxRateDetail,
+          discountCode: discount,
           metaData: {
             'itemId': boothPayment.selectedId!.getOrCrash(),
             },
@@ -357,7 +366,6 @@ class StripeFacade implements SStripeFacade {
           'amount': refundAmount,
         });
 
-        print(responseData.data);
         /// 4. return payment results
         if (responseData.data['error'] != null) {
           return left (PaymentMethodValueFailure.paymentServerError(failedValue: responseData.data['error']));
@@ -375,6 +383,7 @@ class StripeFacade implements SStripeFacade {
           currency: responseData.data['refund']['currency'],
           paymentIntent: responseData.data['refund']['paymentIntent'],
           reason: 'requested by the payer',
+
           receipt_number: responseData.data['refund']['receipt_number'],
           status: responseData.data['refund']['status'],
         );
@@ -514,6 +523,7 @@ class StripeFacade implements SStripeFacade {
 
     final functionRef = _firebaseFunctions.httpsCallable('create_onboarding_stripe_account_link');
 
+
     try {
 
       final userDoc = await _fireStore.userDocument();
@@ -522,15 +532,28 @@ class StripeFacade implements SStripeFacade {
           'email': profile.emailAddress.getOrCrash(),
           'first_name': profile.legalName.value.fold((l) => null, (r) => r),
           'last_name': profile.legalSurname.value.fold((l) => null, (r) => r),
+          'companyName' : profile.stripeCompanyName,
+          'companyAddress' : (profile.stripeBusinessAddress != null) ? StripeBusinessAddressDto.fromDomain(profile.stripeBusinessAddress!).toJson() : null,
+          'TaxBusinessID' : profile.stripeBusinessID,
+          'hstParam' : profile.stripeHSTRegistrationNumber
         }
       );
 
+      if (responseData.data['error'] != null) {
+        return left(AuthFailure.exceptionError(responseData.data['error']));
+      }
+
       if (responseData.data['accountId'] is String) {
         final Map<String, dynamic> stripeAccount = {
-          'stripeAccountId': responseData.data['accountId']
+          'stripeAccountId': responseData.data['accountId'],
+          'stripeCompanyName': profile.stripeCompanyName, // Update company name
+          'stripeBusinessAddress': (profile.stripeBusinessAddress != null) ? StripeBusinessAddressDto.fromDomain(profile.stripeBusinessAddress!).toJson() : null,
+          'stripeBusinessID': profile.stripeBusinessID, // Update tax business ID
+          'stripeHSTRegistrationNumber': profile.stripeHSTRegistrationNumber // Update HST
         };
         await userDoc.update(stripeAccount);
       }
+
       if (!(await canLaunchUrl(Uri.parse(responseData.data['url'] as String)))) {
         return left(const AuthFailure.exceptionError('sorry, could not open url'));
       }
@@ -613,6 +636,14 @@ class StripeFacade implements SStripeFacade {
           'stripeAccountId': profile.stripeAccountId
       });
 
+      final userDoc = await _fireStore.userDocument();
+      final Map<String, dynamic> stripeAccount = {
+        'stripeCompanyName': profile.stripeCompanyName, // Update company name
+        'stripeBusinessAddress': (profile.stripeBusinessAddress != null) ? StripeBusinessAddressDto.fromDomain(profile.stripeBusinessAddress!).toJson() : null,
+        'stripeBusinessID': profile.stripeBusinessID, // Update tax business ID
+        'stripeHSTRegistrationNumber': profile.stripeHSTRegistrationNumber // Update HST
+      };
+      await userDoc.update(stripeAccount);
 
       if (!(await canLaunchUrl(Uri.parse(responseData.data['url'] as String)))) {
         return left(AuthFailure.serverError());

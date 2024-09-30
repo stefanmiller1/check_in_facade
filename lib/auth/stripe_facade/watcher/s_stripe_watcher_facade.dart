@@ -48,18 +48,57 @@ class StripeWatcherFacade implements SStripeWatcherFacade {
       });
       final List data = responseData.data['data'];
 
+      print(data.map((e) => e));
+
       if (data.isNotEmpty) {
-        final List<PaymentIntent> paymentItems = data.where((element) => element['status'] == 'succeeded').map((e) {
-          final List charges = e['charges']['data'];
-          final charge = charges.where((element) => element['outcome']['network_status'] == 'approved_by_network').isNotEmpty ? charges.firstWhere((element) => element['outcome']['network_status'] == 'approved_by_network') : null;
 
-          return PaymentIntent(id: e['id'], status: e['status'], canceled_at: e['canceled_at'], amount: e['amount'], created: e['created'], currency: e['currency'], payment_method: CardItem(paymentId: charge['payment_method'], cardDetails: CardDetails(brand: charge['payment_method_details']['card']['brand'], lastFourNumbers: charge['payment_method_details']['card']['last4'], expMonth: charge['payment_method_details']['card']['exp_month'], expiryYearDate: charge['payment_method_details']['card']['exp_year'])), itemId: e['metadata']['reservationId'], metaData: e['metadata'], receipt_url: charge['receipt_url'], );
+        final List<PaymentIntent> paymentItems = data.map((e) {
+          // final List charges = e['charges']['data'];
+          // List<CardItem?> cardItems = charges.map((charge) {
+          //   if (charge['payment_method_details'] != null && charge['payment_method_details']['card'] != null) {
+          //     return CardItem(
+          //       paymentId: charge['payment_method'],
+          //       cardDetails: CardDetails(
+          //         brand: charge['payment_method_details']['card']['brand'],
+          //         lastFourNumbers: charge['payment_method_details']['card']['last4'],
+          //         expMonth: charge['payment_method_details']['card']['exp_month'],
+          //         expiryYearDate: charge['payment_method_details']['card']['exp_year'],
+          //       ),
+          //     );
+          //   }
+          //   return null; // Return null if card details are not available
+          // }).where((item) => item != null).toList();
+          // final charge = charges.where((element) => element['outcome']['network_status'] == 'approved_by_network').isNotEmpty ? charges.firstWhere((element) => element['outcome']['network_status'] == 'approved_by_network') : e.;
 
+
+          // print(e['charges']['data']);
+          // print(charge);
+
+          return PaymentIntent(
+            id: e['id'],
+            status: e['status'],
+            canceled_at: e['canceled_at'],
+            amount: e['amount'],
+            created: e['created'],
+            currency: e['currency'],
+            // payment_method: CardItem(
+            //     paymentId: charge['payment_method'],
+            //     cardDetails: CardDetails(
+            //         brand: charge['payment_method_details']['card']['brand'],
+            //         lastFourNumbers: charge['payment_method_details']['card']['last4'],
+            //         expMonth: charge['payment_method_details']['card']['exp_month'],
+            //         expiryYearDate: charge['payment_method_details']['card']['exp_year']
+            //     )
+            // ),
+            // itemId: e['metadata']['reservationId'],
+            metaData: e['metadata'],
+            // receipt_url: charge['receipt_url'],
+          );
         }).toList();
 
+        
 
         yield right(paymentItems);
-
         return;
       }
 
@@ -104,6 +143,8 @@ class StripeWatcherFacade implements SStripeWatcherFacade {
               type: e['type']
           );
         }).toList();
+
+
         yield right(payouts);
         return;
       }

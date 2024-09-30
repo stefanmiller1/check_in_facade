@@ -122,16 +122,18 @@ class ActivitySettingsFacade {
   /// Singleton instance.
   static final ActivitySettingsFacade instance = ActivitySettingsFacade._privateConstructor();
 
-  Future<ActivityManagerForm?> getActivitySettings({
-    required String reservationId
-}) async {
+  Future<ActivityManagerForm> getActivitySettings({
+    required String reservationId}) async {
     // if (firebaseUser == null) return Future.error('User does not exist');
 
     final activitySettings = await getFirebaseFirestore()
         .collection('activity_directory')
         .doc(reservationId).get();
 
-    if (!(activitySettings.exists) || activitySettings.data() == null) return null;
+    if (!(activitySettings.exists) || activitySettings.data() == null) {
+      return Future.error('cannot find activity');
+    }
+
       return processActivityForm(activitySettings);
   }
 

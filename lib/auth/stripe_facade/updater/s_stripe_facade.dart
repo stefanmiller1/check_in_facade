@@ -38,7 +38,8 @@ abstract class SStripeFacade {
     required UniqueId activityId,
     required List<MVBoothPayments> amounts,
     required String currency,
-    required String paymentMethod,
+    required DiscountCode? discount,
+    required CardItem paymentMethod,
     required String? description,
     required StripeTaxRateDetails? taxRateDetail,
     required String? taxCalculationId

@@ -19,7 +19,7 @@ dependencies:
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^6.0.0
   flutter_local_notifications: ^16.3.1
-  url_launcher: ^6.0.2
+  url_launcher: ^6.3.0
   check_in_domain:
     path: /Users/stefanmiller/AndroidStudioProjects/check_in_domain
 

@@ -241,6 +241,34 @@ class AttendeeFacade {
     }
   }
 
+  Future<AttendeeItem> getAttendeeItemForActivity({
+    required String activityId,
+    required String userId,
+  }) async {
+
+    if (firebaseUser == null) {
+      return Future.error('Not Signed In');
+    }
+
+    try {
+
+      final attendeeItem = await getFirebaseFirestore()
+          .collection('activity_directory')
+          .doc(activityId)
+          .collection('attendees')
+          .doc(userId).get();
+
+      if (attendeeItem.data() == null) {
+        return Future.error(e.toString());
+      }
+
+      return processAttendingItem(attendeeItem);
+    } catch (e) {
+      return Future.error(e.toString());
+    }
+
+  }
+
   AttendeeItem processAttendingItem(DocumentSnapshot<Map<String, dynamic>> query) {
     return AttendeeItemDto.fromJson(query.data()!).toDomain();
   }
