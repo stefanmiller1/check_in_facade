@@ -26,22 +26,22 @@ class NotificationUpdaterFacade implements NAuthFacade {
       final userInfo = await _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash()).get();
       final attendeeProfileDoc = _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash());
 
-      /// create new notification in users notifications collection
-      attendeeProfileDoc.collection('notifications').doc(notificationId.getOrCrash()).set(notificationDto);
-
-      /// send notification to attendee if mobile token exists
-      sendPushNotification(
-          userInfo.data().toString().contains('token') ? userInfo['token'] : null,
-          userInfo.data().toString().contains('webToken') ? userInfo['webToken'] : null,
-          <String, dynamic>{
-            'reservationId': reservationId,
-            'status': 'done',
-            'link': '/${DashboardMarker.reservations.name.toString()}/reservation/$reservationId'
-          },
-        '/${DashboardMarker.reservations.name.toString()}/reservation/$reservationId',
-        'New Invitation!',
-        'You\'ve been invited to Join a new Reservation!'
-      );
+      // /// create new notification in users notifications collection
+      // attendeeProfileDoc.collection('notifications').doc(notificationId.getOrCrash()).set(notificationDto);
+      //
+      // /// send notification to attendee if mobile token exists
+      // sendPushNotification(
+      //     userInfo.data().toString().contains('token') ? userInfo['token'] : null,
+      //     userInfo.data().toString().contains('webToken') ? userInfo['webToken'] : null,
+      //     <String, dynamic>{
+      //       'reservationId': reservationId,
+      //       'status': 'done',
+      //       'link': '/${DashboardMarker.reservations.name.toString()}/reservation/$reservationId'
+      //     },
+      //   '/${DashboardMarker.reservations.name.toString()}/reservation/$reservationId',
+      //   'New Invitation!',
+      //   'You\'ve been invited to Join a new Reservation!'
+      // );
 
       return right(unit);
     } catch (e) {
@@ -265,7 +265,7 @@ class NotificationUpdaterFacade implements NAuthFacade {
        /// get res owner token for sending notification
        final userInfo = await _fireStore.collection('users').doc(resOwnerId).get();
 
-       /// send notification to attedee if mobile token exists
+       /// send notification to attendee if mobile token exists
        sendPushNotification(
            userInfo.data().toString().contains('token') ? userInfo['token'] : null,
            userInfo.data().toString().contains('webToken') ? userInfo['webToken'] : null,

@@ -230,8 +230,58 @@ class ActivityFormFacade implements AAuthFacade {
     throw UnimplementedError();
   }
 
-
 }
 
+
+class ActivityFormUpdateFacade {
+
+  ActivityFormUpdateFacade._privateConstructor() {
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      firebaseUser = FirebaseAuth.instance.currentUser;
+    });
+  }
+
+  /// Current logged in user in Firebase. Does not update automatically.
+  /// Use [FirebaseAuth.authStateChanges] to listen to the state changes.
+  User? firebaseUser = FirebaseAuth.instance.currentUser;
+
+  /// Gets proper [FirebaseFirestore] instance.
+  FirebaseFirestore getFirebaseFirestore() => FirebaseFirestore.instance;
+
+  static final ActivityFormUpdateFacade instance = ActivityFormUpdateFacade._privateConstructor();
+
+  Future<void> updateViewCount({required String activityResId}) async {
+    try {
+
+      final String currentUser = firebaseUser?.uid ?? UniqueId().getOrCrash();
+
+      final activityDoc = await getFirebaseFirestore().activityDocument(activityResId);
+      final viewDoc = activityDoc.collection('views').doc(currentUser);
+
+      getFirebaseFirestore().runTransaction((transaction) async {
+        DocumentSnapshot snapshot = await transaction.get(viewDoc);
+
+        if (!(snapshot.exists)) {
+          transaction.set(viewDoc, {
+            'viewCount': 1,
+            'viewedBy': currentUser,
+            'viewTime': DateTime.now().millisecondsSinceEpoch
+          });
+        } else {
+          int currentCount = snapshot['viewCount'];
+          transaction.set(viewDoc, {
+            'viewCount': currentCount + 1,
+            'viewedBy': currentUser,
+            'viewTime': DateTime.now().millisecondsSinceEpoch
+          });
+        }
+      });
+
+    } catch (e) {
+      Future.error('Error updating view count: $e');
+    }
+  }
+
+}
 
 

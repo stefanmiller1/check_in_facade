@@ -9,6 +9,8 @@ class MerchVendorAuthWatcherFacade implements MVAuthWatcherFacade {
       this._fireStore
     );
 
+
+
   @override
   Stream<Either<ProfileValueFailure, List<EventMerchantVendorProfile>>> watchAllEventMerchProfiles({required List<String> profileIds}) async* {
     try {
@@ -88,6 +90,45 @@ class MerchVendorAuthWatcherFacade implements MVAuthWatcherFacade {
       yield left(ProfileValueFailure.profileServerError(serverResponse: e.toString()));
     }
   }
+
+  @override
+  Stream<Either<ProfileValueFailure, List<EventMerchantVendorProfile>>> watchEventMerchByFilter({required List<MerchantVendorTypes>? merchType, required bool? seekingWork, required int? minimumRating, required int? limit}) async* {
+    
+    try {
+
+      Query<Map<String, dynamic>> vendorRef = _fireStore.collection('vendor_merch_profile').where('isPrivate', isEqualTo: null);
+
+
+      // Apply filtering based on the provided parameters
+      if (merchType != null && merchType.isNotEmpty) {
+        vendorRef = vendorRef.where('merchType', arrayContainsAny: merchType.map((e) => e.toString()).toList());
+      }
+
+      if (seekingWork != null) {
+        vendorRef = vendorRef.where('seekingWork', isEqualTo: seekingWork);
+      }
+
+      if (minimumRating != null) {
+        vendorRef = vendorRef.where('rating', isGreaterThanOrEqualTo: minimumRating);
+      }
+
+      if (limit != null) {
+        vendorRef = vendorRef.limit(limit);
+      }
+
+      yield* vendorRef.snapshots().map((event) {
+          if (event.docs.isNotEmpty) {
+            return right<ProfileValueFailure, List<EventMerchantVendorProfile>>(event.docs.map((e) => EventMerchantVendorProfileDto.fromFireStore(e.data()).toDomain()).toList());
+          }
+        return left(const ProfileValueFailure.profileServerError(serverResponse: 'no profiles found'));
+      });
+    } catch (e) {
+      yield left(ProfileValueFailure.profileServerError(serverResponse: e.toString()));
+    }
+    
+  }
+  
+  
 }
 
 class MerchVenFacade {

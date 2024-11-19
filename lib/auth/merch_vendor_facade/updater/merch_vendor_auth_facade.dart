@@ -81,7 +81,8 @@ class MerchantVendorAuthFacade implements MVAuthFacade {
       reference.delete();
 
       final merchantDoc = _fireStore.collection('vendor_merch_profile').doc(profile.profileId.getOrCrash());
-      merchantDoc.delete();
+      merchantDoc.update({'isDeleted': true});
+      // merchantDoc.delete();
 
       return right(unit);
     } catch (e) {

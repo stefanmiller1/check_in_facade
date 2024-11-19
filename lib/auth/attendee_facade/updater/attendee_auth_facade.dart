@@ -70,7 +70,7 @@ class AttendeeFormFacade implements ATTAuthFacade {
 
           newPaymentBooths = newPaymentBooths.map((booth) {
             PaymentIntent? payment = payments.firstWhere(
-                    (element) => booth.selectedId != null && element.itemId == booth.selectedId!.getOrCrash(),
+                    (element) => booth.selectedId != null && element.itemId == booth.selectedId?.getOrCrash(),
                     orElse: () => PaymentIntent()
             );
 

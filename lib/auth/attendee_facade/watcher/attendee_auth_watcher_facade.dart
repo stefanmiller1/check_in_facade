@@ -89,7 +89,6 @@ class AttendanceAuthWatcherFacade implements ATTAuthWatcherFacade {
 
           yield* attendeeRef.snapshots().map(
               (event) {
-                print(event.docs.where((e) => e.data()['classesInstructorProfile'] is String  == false && e.data()['classesInstructorProfile'] != null).map((e) => e.data()['reservationId']));
 
           if (event.docs.isNotEmpty) {
             return right<AttendeeFormFailure, List<AttendeeItem>>(event.docs.map((form) => AttendeeItemDto.fromFireStore(form.data()).toDomain()).toList());
@@ -266,7 +265,6 @@ class AttendeeFacade {
     } catch (e) {
       return Future.error(e.toString());
     }
-
   }
 
   AttendeeItem processAttendingItem(DocumentSnapshot<Map<String, dynamic>> query) {
