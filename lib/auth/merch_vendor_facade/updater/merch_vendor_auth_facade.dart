@@ -77,11 +77,11 @@ class MerchantVendorAuthFacade implements MVAuthFacade {
         return left(const ProfileValueFailure.profileServerError());
       }
 
-      final reference = _firebaseStorage.ref('vendor_merch_profile').child(profile.profileId.getOrCrash());
-      reference.delete();
+      // final reference = _firebaseStorage.ref('vendor_merch_profile').child(profile.profileId.getOrCrash());
+      // reference.delete();
 
       final merchantDoc = _fireStore.collection('vendor_merch_profile').doc(profile.profileId.getOrCrash());
-      merchantDoc.update({'isDeleted': true});
+      merchantDoc.update({'isDeactivated': true});
       // merchantDoc.delete();
 
       return right(unit);
@@ -90,7 +90,5 @@ class MerchantVendorAuthFacade implements MVAuthFacade {
     }
 
   }
-
-
 
 }

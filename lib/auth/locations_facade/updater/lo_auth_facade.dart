@@ -4,7 +4,7 @@ abstract class LOAuthFacade {
 
   /// *** LOCATION CREATOR EVENTS *** ///
 
-  Future<Either<AuthFailure, Unit>> createNewProfileLocationAuth({
+  Future<Either<AuthFailure, LocationModel>> createNewProfileLocationAuth({
     required LocationModel location});
 
   Future<Either<AuthFailure, Unit>> createNewLocationFacilitySession({

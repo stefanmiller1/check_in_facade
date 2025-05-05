@@ -40,17 +40,16 @@ abstract class IAuthFacade {
 
   /// sign-in methods ///
   @override
-  Future<Either<AuthFailure, Unit>> signInWithEmailAndPassword({
+  Future<Either<AuthFailure, UserProfileModel>> signInWithEmailAndPassword({
   required EmailAddress emailAddress,
   required String password,
   });
 
-  Future<Either<AuthFailure, bool>> signInWithGoogle();
+  Future<Either<AuthFailure, UserProfileModel>> signInWithGoogle();
 
-  Future<Either<AuthFailure, bool>> signInWithApple();
+  Future<Either<AuthFailure, UserProfileModel>> signInWithApple();
 
   /// sign-in update methods ///
-
   Future<Either<AuthFailure, Unit>> verifyAccountWithEmail();
 
   Future<Either<AuthFailure, Unit>> sendPasswordResetEmail({

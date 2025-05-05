@@ -1,11 +1,3 @@
-// import 'package:check_in_credentials/check_in_credentials.dart';
-// import 'package:check_in_domain/check_in_domain.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:firebase_messaging/firebase_messaging.dart';
-// import 'package:flutter/foundation.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 part of check_in_facade;
 
 
@@ -139,6 +131,8 @@ class LocalNotificationCore {
           provisional: false,
           sound: true
       );
+      
+      
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         String? token;
@@ -152,7 +146,6 @@ class LocalNotificationCore {
                 .update({'webToken': token});
           } else {
             token = await FirebaseMessaging.instance.getToken();
-            print(token);
             await FirebaseFirestore.instance.collection('users')
                 .doc(userId)
                 .update({'token': token});

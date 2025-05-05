@@ -4,7 +4,7 @@ abstract class RAuthWatcherFacade {
 
   /// reservation watcher events
   Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchReservationFacilityItem({required List<String> facilityId, required String? activityTypeId, required bool? isPublic, required List<ReservationSlotState>? resState});
-  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchCurrentUserReservationItem({required List<ReservationSlotState> resState, required UserProfileModel currentUser, required bool isResInvitation, required int? limit, required bool? isActivity});
+  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchCurrentUserReservationItem({required List<ReservationSlotState> resState, required UserProfileModel currentUser, required bool isResInvitation, required int? limit, required int? hoursTimeAhead, required int? hoursTimeBefore, required bool? isActivity, required bool? isPrivate, required bool? isReversedSort, required List<FormStatus>? formState});
 
   Stream<Either<ReservationFormFailure, List<Post>>> watchReservationPostItems({required String? reservationId});
   Stream<Either<ReservationFormFailure, List<ReservationRequestItem>>> watchReservationRequests();

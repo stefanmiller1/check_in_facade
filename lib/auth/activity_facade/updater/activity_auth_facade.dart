@@ -15,7 +15,7 @@ class ActivityFormFacade implements AAuthFacade {
 
 
   @override
-  Future<Either<ActivityFormFailure, Unit>> updateActivitySettingsForm({required ActivityManagerForm activityForm, required activityResId}) async {
+  Future<Either<ActivityFormFailure, Unit>> updateActivitySettingsForm({required ActivityManagerForm activityForm, required UniqueId activityResId}) async {
 
 
     try {
@@ -113,19 +113,17 @@ class ActivityFormFacade implements AAuthFacade {
 
       await _notificationFacade.createUpdatedReservationActivityNotification(reservationId: activityResId.getOrCrash());
 
-      /// update reservation state
-      if (activitySetupComplete(newActivityForm) && activityIsPublic(newActivityForm)) {
+      /// update reservation form state
+      print('activity setup?');
+      print(activitySetupComplete(newActivityForm));
+      if (activitySetupComplete(newActivityForm)) {
         reservationDoc.update({'isActivity': true});
+        reservationDoc.update({'formStatus': 'FormStatus.published'});
       } else {
         reservationDoc.update({'isActivity': false});
+        reservationDoc.update({'formStatus': 'FormStatus.inProgress'});
       }
 
-      /// update published vendor form state
-      if (getHasPublishedVendorForms(newActivityForm.rulesService.vendorMerchantForms ?? [])) {
-        reservationDoc.update({'isLookingForVendor': true});
-      } else {
-        reservationDoc.update({'isLookingForVendor': null});
-      }
 
       return right(unit);
     } on FirebaseAuthException catch (e) {
@@ -229,6 +227,7 @@ class ActivityFormFacade implements AAuthFacade {
     // TODO: implement updateFacilityManagerProfile
     throw UnimplementedError();
   }
+  
 
 }
 

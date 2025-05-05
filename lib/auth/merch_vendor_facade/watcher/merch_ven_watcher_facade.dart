@@ -59,10 +59,11 @@ class MerchVendorAuthWatcherFacade implements MVAuthWatcherFacade {
 
       yield* _fireStore
             .collection('vendor_merch_profile')
-            .where('profileOwner', isEqualTo: userId).snapshots().map(
+            .where('profileOwner', isEqualTo: userId)
+            .snapshots().map(
               (event) {
                 if (event.docs.isNotEmpty) {
-                  return right<ProfileValueFailure, List<EventMerchantVendorProfile>>(event.docs.map((e) => EventMerchantVendorProfileDto.fromFireStore(e.data()).toDomain()).toList());
+                  return right<ProfileValueFailure, List<EventMerchantVendorProfile>>(event.docs.where((e) => EventMerchantVendorProfileDto.fromFireStore(e.data()).toDomain().isDeactivated != true).map((e) => EventMerchantVendorProfileDto.fromFireStore(e.data()).toDomain()).toList());
               }
                 return left(const ProfileValueFailure.profileServerError(serverResponse: 'no profiles found'));
           });
@@ -162,6 +163,60 @@ class MerchVenFacade {
       return (profile.data() != null) ? processProfileItem(profile) : null;
     } catch (e) {
       return null;
+    }
+  }
+  
+  Future<(List<EventMerchantVendorProfile>, DocumentSnapshot?)> getMerchVendorProfiles({
+    required List<MerchantVendorTypes> merchType,
+    required bool? isLookingForWork,
+    required int? limit,
+    required DocumentSnapshot<Object?>? startAfterDoc, 
+  }) async {
+
+      Query<Map<String, dynamic>> vendorRef = getFirebaseFirestore().collection('vendor_merch_profile').where('isPrivate', isEqualTo: null);
+
+      if (merchType.isNotEmpty) {
+        vendorRef = vendorRef.where('type', arrayContainsAny: merchType.map((e) => e.toString()).toList());
+      }
+
+      if (isLookingForWork != null) {
+        vendorRef = vendorRef.where('isLookingForWork', isEqualTo: isLookingForWork);
+      }
+
+      if (limit != null) {
+        vendorRef = vendorRef.limit(limit);
+      }
+
+      final vendorProfiles = startAfterDoc != null 
+      ? await vendorRef.startAfterDocument(startAfterDoc).get() 
+      : await vendorRef.get();
+
+
+      final finalDoc = vendorProfiles.docs.length == limit ? vendorProfiles.docs.last : null;
+
+
+    return (
+      vendorProfiles.docs.map((e) => processProfileItem(e)).toList(),
+      finalDoc
+    );
+  }
+
+  Future<List<EventMerchantVendorProfile>> queryByUserProfileSearch({
+    required String vendorName,
+    required int limit
+  }) async {
+
+    try {
+        final querySnapshot = getFirebaseFirestore()
+        .collection('vendor_merch_profile')
+        .where('brandName', isGreaterThanOrEqualTo: vendorName)
+        .where('brandName', isLessThanOrEqualTo: vendorName + '\uf8ff')
+        .limit(limit)
+        .get();
+
+    return querySnapshot.then((value) => value.docs.map((e) => processProfileItem(e)).toList());
+  } catch (e) {
+    return Future.value([]);    
     }
   }
 

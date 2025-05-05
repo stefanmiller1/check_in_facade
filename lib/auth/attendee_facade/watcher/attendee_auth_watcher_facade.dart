@@ -199,6 +199,8 @@ class AttendeeFacade {
 
   static final AttendeeFacade instance = AttendeeFacade._privateConstructor();
 
+  
+
   Future<List<AttendeeItem>> getCurrentUserAttending({
     required ContactStatus? status,
     required AttendeeType? attendingType,

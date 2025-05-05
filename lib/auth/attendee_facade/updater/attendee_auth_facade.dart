@@ -7,183 +7,378 @@ class AttendeeFormFacade implements ATTAuthFacade {
   final FirebaseStorage _firebaseStorage;
   final FirebaseMessaging _firebaseMessaging;
   final FirebaseAuth _firebaseAuth;
-  final NAuthFacade _notificationFacade;
+  final CommAuthFacade _communcationFacade;
   final EAuthFacade _emailFacade;
 
   AttendeeFormFacade(
       this._fireStore,
       this._firebaseStorage,
       this._firebaseAuth,
-      this._notificationFacade,
+      this._communcationFacade,
       this._firebaseMessaging,
       this._emailFacade,
     );
 
+  
+  // @override
+  // Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({required AttendeeItem attendeeItem, required UserProfileModel activityOwner, required ActivityManagerForm? activityForm, required String? paymentIntentId, required , required List<PaymentIntent>? payments}) async {
 
+  //   late AttendeeItem attendee;
+  //   attendee = attendeeItem;
+
+
+  //   if (paymentIntentId != null) {
+  //     attendee = attendee.copyWith(
+  //         paymentIntentId: paymentIntentId
+  //     );
+  //   }
+
+
+  //   try {
+
+  //     /// check [ActivityManagerForm] for attendee limits and rules if activity form exists.
+  //     if (activityForm != null) {
+  //       if (attendeeItem.attendeeType == AttendeeType.free) {
+  //         final attendeeCount = await _fireStore.collection('activity_directory')
+  //             .doc(attendeeItem.reservationId.getOrCrash())
+  //             .collection('attendees')
+  //             .where('attendeeType', isEqualTo: 'AttendeeType.free')
+  //             .where('contactStatus', isEqualTo: 'ContactStatus.joined')
+  //             .count().get();
+
+  //         if (activityForm.activityAttendance.attendanceLimit != null && activityForm.activityAttendance.attendanceLimit != 0 && (activityForm.activityAttendance.attendanceLimit! <= (attendeeCount.count ?? 0))) {
+  //           return left(const AttendeeFormFailure.attendeeLimitReached());
+  //         }
+  //       }
+
+
+  //     /// create attendee - and update attendee tickets such that they are no longer onHold.
+  //     if (attendeeItem.attendeeType == AttendeeType.tickets) {
+  //         /// get count for ticket in each [TicketItem] that was selected during check-out.
+  //         await createNewTicket(attendeeItem: attendeeItem, activityForm: activityForm, isOnHold: false);
+  //     }
+
+
+  //     /// save documents if vendor form contains any
+  //     if (attendeeItem.attendeeType == AttendeeType.vendor && attendee.vendorForm != null) {
+  //       late VendorMerchantForm newVendorForm = attendeeItem.vendorForm!;
+
+  //       if ((payments != null) && (payments.isEmpty == false)) {
+  //         late List<MVBoothPayments> newPaymentBooths = [];
+  //         newPaymentBooths.addAll(newVendorForm.boothPaymentOptions ?? []);
+
+  //         newPaymentBooths = newPaymentBooths.map((booth) {
+  //           PaymentIntent? payment = payments.firstWhere(
+  //                   (element) => booth.selectedId != null && element.itemId == booth.selectedId?.getOrCrash(),
+  //                   orElse: () => PaymentIntent()
+  //           );
+
+  //           return booth.copyWith(
+  //               stripePaymentIntent: payment,
+  //               status: AvailabilityStatus.requested
+  //           );
+  //         }).toList();
+
+  //         newVendorForm = newVendorForm.copyWith(
+  //           boothPaymentOptions: newPaymentBooths
+  //         );
+
+  //         attendee = attendee.copyWith(
+  //           vendorForm: newVendorForm
+  //         );
+  //       }
+
+  //       if (isDocumentsOptionValid(attendeeItem.vendorForm!)) {
+  //         late List<MVCustomOption> newOptions = [];
+  //         newOptions.addAll(newVendorForm.customOptions ?? []);
+
+  //         late MVCustomOption? newCustomOption = getDocumentRuleOption(newVendorForm);
+  //         late List<DocumentFormOption> documents = [];
+  //         documents.addAll(getDocumentsList(newVendorForm) ?? []);
+
+  //         for (DocumentFormOption document in documents) {
+  //           if (document.documentForm.imageToUpload != null) {
+  //             final metadata = SettableMetadata(contentType: 'application/pdf');
+  //             final urlId = UniqueId();
+  //             final reference = _firebaseStorage.ref('activity_directory').child(activityForm.activityFormId.getOrCrash());
+  //             await reference.child('vendor_form').child(attendeeItem.vendorForm!.formId.getOrCrash()).child('attendee_form').child('${urlId.getOrCrash()}.pdf').putData(document.documentForm.imageToUpload!, metadata);
+  //             /// retrieve link to file
+  //             final uri = await reference.child('vendor_form').child(attendeeItem.vendorForm!.formId.getOrCrash()).child('attendee_form').child('${urlId.getOrCrash()}.pdf').getDownloadURL();
+  //             final index = documents.indexWhere((element) => element.documentForm.key == document.documentForm.key);
+  //             final newDocument = DocumentFormOption(documentForm: ImageUpload(key: uri, uriPath: uri), isRequiredOption: document.isRequiredOption);
+  //             documents.replaceRange(index, index + 1, [newDocument]);
+  //           }
+  //         }
+
+  //         newCustomOption = newCustomOption?.copyWith(
+  //             customRuleOption: newCustomOption.customRuleOption?.copyWith(
+  //                 customDocumentOptions: documents
+  //             )
+  //         );
+
+  //         if (newVendorForm.customOptions != null && newCustomOption != null) {
+  //           final int customIndex = newVendorForm.customOptions!.indexWhere((element) => element.customRuleOption?.ruleId == newCustomOption?.customRuleOption?.ruleId);
+  //           newOptions.replaceRange(customIndex, customIndex + 1, [newCustomOption]);
+  //           newVendorForm = newVendorForm.copyWith(
+  //               customOptions: newOptions
+  //           );
+
+
+  //           attendee = attendee.copyWith(
+  //             vendorForm: newVendorForm
+  //           );
+
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     /// create notification from attendee to owner for request to join
+  //     if (attendeeItem.contactStatus == ContactStatus.requested) {
+  //         if (attendeeItem.attendeeType == AttendeeType.vendor && _firebaseAuth.currentUser != null && activityForm != null) {
+  //           final String activityTitle = activityForm.profileService.activityBackground.activityTitle.value.fold((l) => 'an Event near you', (r) => r);
+  //           final String activityLink =  'https://cincout.ca${reservationRoute(activityForm.activityFormId.getOrCrash())}';
+  //           final String activitySettingsLink = 'https://cincout.ca${reservationSettingsRoute(activityForm.activityFormId.getOrCrash(), SettingNavMarker.vendorForm.name)}';
+  //           final String currentUserEmail = _firebaseAuth.currentUser?.email ?? '';
+
+  //           final String activityOwnerEmail = activityOwner.emailAddress.getOrCrash();
+  //           final String activityOwnerVendorsLink = '/${DashboardMarker.resVendorForms.name.toString()}/reservation/${activityForm.activityFormId.getOrCrash()}';
+  //           final String attendeeTitle = _firebaseAuth.currentUser?.displayName ?? '';
+
+  //           await _emailFacade.createEmailNotification(sendTo: [currentUserEmail], template: 'attendee_vendor_request_submitted', button_link: activitySettingsLink, reference_body_title: activityTitle, attachment: null);
+  //           await _emailFacade.createEmailNotification(sendTo: [activityOwnerEmail], template: 'activity_owner_request_received', button_link: activityLink, reference_body_title: attendeeTitle, attachment: null);
+  //         }
+  //         await _notificationFacade.createRequestToJoinReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
+  //     }
+
+
+  //     if (attendeeItem.contactStatus == ContactStatus.joined) {
+  //         await _notificationFacade.createJoinedReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
+  //     }
+
+  //     final attendeeFormDto = AttendeeItemDto.fromDomain(attendee).toJson();
+  //     final activityDoc = await _fireStore.activityDocument(attendee.reservationId.getOrCrash());
+  //     final attendeeDoc = activityDoc.collection('attendees').doc(attendee.attendeeOwnerId.getOrCrash());
+  //     final attendeeProfileDoc = _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash());
+  //     final profileAttReservations = attendeeProfileDoc.collection('attending').doc(attendee.reservationId.getOrCrash());
+
+  //     attendeeDoc.update(attendeeFormDto);
+  //     profileAttReservations.update(attendeeFormDto);
+
+  //     return right(unit);
+  //   } on FirebaseAuthException catch (e) {
+  //     if (e.toString().contains('permission-denied') || e.toString().contains('unknown')) {
+  //       return left(const AttendeeFormFailure.attendeePermissionDenied());
+  //     } else {
+  //       return left(AttendeeFormFailure.attendeeServerError(failed: e.code));
+  //     }
+  //   } catch (e) {
+  //     if (e.toString().contains('permission-denied')) {
+  //       return left(const AttendeeFormFailure.attendeePermissionDenied());
+  //     }
+  //     return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
+  //   }
+  // }
 
   @override
-  Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({required AttendeeItem attendeeItem, required UserProfileModel activityOwner, required ActivityManagerForm? activityForm, required String? paymentIntentId, required , required List<PaymentIntent>? payments}) async {
-
-    late AttendeeItem attendee;
-    attendee = attendeeItem;
-
-
-    if (paymentIntentId != null) {
-      attendee = attendee.copyWith(
-          paymentIntentId: paymentIntentId
-      );
-    }
-
-
+  Future<Either<AttendeeFormFailure, Unit>> createNewAttendee({
+  required AttendeeItem attendeeItem,
+  required UserProfileModel activityOwner,
+  required ActivityManagerForm? activityForm,
+  required String? paymentIntentId,
+  required List<PaymentIntent>? payments,
+}) async {
     try {
+      // Update paymentIntent if provided
+      AttendeeItem attendee = _updatePaymentIntent(attendeeItem, paymentIntentId);
 
-      /// check [ActivityManagerForm] for attendee limits and rules if activity form exists.
-      if (activityForm != null) {
-        if (attendeeItem.attendeeType == AttendeeType.free) {
-          final attendeeCount = await _fireStore.collection('activity_directory')
-              .doc(attendeeItem.reservationId.getOrCrash())
-              .collection('attendees')
-              .where('attendeeType', isEqualTo: 'AttendeeType.free')
-              .where('contactStatus', isEqualTo: 'ContactStatus.joined')
-              .count().get();
+      // Process attendee type using a switch statement for cleaner handling
+      attendee = await _processAttendeeType(attendee, activityForm, payments);
 
-          if (activityForm.activityAttendance.attendanceLimit != null && activityForm.activityAttendance.attendanceLimit != 0 && (activityForm.activityAttendance.attendanceLimit! <= (attendeeCount.count ?? 0))) {
-            return left(const AttendeeFormFailure.attendeeLimitReached());
-          }
-        }
+      // Save to Firestore
+      await _saveAttendeeToFirestore(attendee);
 
-
-      /// create attendee - and update attendee tickets such that they are no longer onHold.
-      if (attendeeItem.attendeeType == AttendeeType.tickets) {
-          /// get count for ticket in each [TicketItem] that was selected during check-out.
-          await createNewTicket(attendeeItem: attendeeItem, activityForm: activityForm, isOnHold: false);
-      }
-
-
-      /// save documents if vendor form contains any
-      if (attendeeItem.attendeeType == AttendeeType.vendor && attendee.vendorForm != null) {
-        late VendorMerchantForm newVendorForm = attendeeItem.vendorForm!;
-
-        if ((payments != null) && (payments.isEmpty == false)) {
-          late List<MVBoothPayments> newPaymentBooths = [];
-          newPaymentBooths.addAll(newVendorForm.boothPaymentOptions ?? []);
-
-          newPaymentBooths = newPaymentBooths.map((booth) {
-            PaymentIntent? payment = payments.firstWhere(
-                    (element) => booth.selectedId != null && element.itemId == booth.selectedId?.getOrCrash(),
-                    orElse: () => PaymentIntent()
-            );
-
-            return booth.copyWith(
-                stripePaymentIntent: payment,
-                status: AvailabilityStatus.requested
-            );
-          }).toList();
-
-          newVendorForm = newVendorForm.copyWith(
-            boothPaymentOptions: newPaymentBooths
-          );
-
-          attendee = attendee.copyWith(
-            vendorForm: newVendorForm
-          );
-        }
-
-        if (isDocumentsOptionValid(attendeeItem.vendorForm!)) {
-          late List<MVCustomOption> newOptions = [];
-          newOptions.addAll(newVendorForm.customOptions ?? []);
-
-          late MVCustomOption? newCustomOption = getDocumentRuleOption(newVendorForm);
-          late List<DocumentFormOption> documents = [];
-          documents.addAll(getDocumentsList(newVendorForm) ?? []);
-
-          for (DocumentFormOption document in documents) {
-            if (document.documentForm.imageToUpload != null) {
-              final metadata = SettableMetadata(contentType: 'application/pdf');
-              final urlId = UniqueId();
-              final reference = _firebaseStorage.ref('activity_directory').child(activityForm.activityFormId.getOrCrash());
-              await reference.child('vendor_form').child(attendeeItem.vendorForm!.formId.getOrCrash()).child('attendee_form').child('${urlId.getOrCrash()}.pdf').putData(document.documentForm.imageToUpload!, metadata);
-              /// retrieve link to file
-              final uri = await reference.child('vendor_form').child(attendeeItem.vendorForm!.formId.getOrCrash()).child('attendee_form').child('${urlId.getOrCrash()}.pdf').getDownloadURL();
-              final index = documents.indexWhere((element) => element.documentForm.key == document.documentForm.key);
-              final newDocument = DocumentFormOption(documentForm: ImageUpload(key: uri, uriPath: uri), isRequiredOption: document.isRequiredOption);
-              documents.replaceRange(index, index + 1, [newDocument]);
-            }
-          }
-
-          newCustomOption = newCustomOption?.copyWith(
-              customRuleOption: newCustomOption.customRuleOption?.copyWith(
-                  customDocumentOptions: documents
-              )
-          );
-
-          if (newVendorForm.customOptions != null && newCustomOption != null) {
-            final int customIndex = newVendorForm.customOptions!.indexWhere((element) => element.customRuleOption?.ruleId == newCustomOption?.customRuleOption?.ruleId);
-            newOptions.replaceRange(customIndex, customIndex + 1, [newCustomOption]);
-            newVendorForm = newVendorForm.copyWith(
-                customOptions: newOptions
-            );
-
-
-            attendee = attendee.copyWith(
-              vendorForm: newVendorForm
-            );
-
-            }
-          }
-        }
-      }
-
-      /// create notification from attendee to owner for request to join
-      if (attendeeItem.contactStatus == ContactStatus.requested) {
-          if (attendeeItem.attendeeType == AttendeeType.vendor && _firebaseAuth.currentUser != null && activityForm != null) {
-            final String activityTitle = activityForm.profileService.activityBackground.activityTitle.value.fold((l) => 'an Event near you', (r) => r);
-            final String activityLink =  'https://cincout.ca${reservationRoute(activityForm.activityFormId.getOrCrash())}';
-            final String activitySettingsLink = 'https://cincout.ca${reservationSettingsRoute(activityForm.activityFormId.getOrCrash(), SettingNavMarker.vendorForm.name)}';
-            final String currentUserEmail = _firebaseAuth.currentUser?.email ?? '';
-
-            final String activityOwnerEmail = activityOwner.emailAddress.getOrCrash();
-            final String activityOwnerVendorsLink = '/${DashboardMarker.resVendorForms.name.toString()}/reservation/${activityForm.activityFormId.getOrCrash()}';
-            final String attendeeTitle = _firebaseAuth.currentUser?.displayName ?? '';
-
-            await _emailFacade.createEmailNotification(sendTo: [currentUserEmail], template: 'attendee_vendor_request_submitted', button_link: activitySettingsLink, reference_body_title: activityTitle, attachment: null);
-            await _emailFacade.createEmailNotification(sendTo: [activityOwnerEmail], template: 'activity_owner_request_received', button_link: activityLink, reference_body_title: attendeeTitle, attachment: null);
-          }
-          await _notificationFacade.createRequestToJoinReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
-      }
-
-
-      if (attendeeItem.contactStatus == ContactStatus.joined) {
-          await _notificationFacade.createJoinedReservationNotification(reservationId: attendeeItem.reservationId.getOrCrash(), attendee: attendeeItem);
-      }
-
-      final attendeeFormDto = AttendeeItemDto.fromDomain(attendee).toJson();
-      final activityDoc = await _fireStore.activityDocument(attendee.reservationId.getOrCrash());
-      final attendeeDoc = activityDoc.collection('attendees').doc(attendee.attendeeOwnerId.getOrCrash());
-      final attendeeProfileDoc = _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash());
-      final profileAttReservations = attendeeProfileDoc.collection('attending').doc(attendee.reservationId.getOrCrash());
-
-      attendeeDoc.set(attendeeFormDto);
-      profileAttReservations.set(attendeeFormDto);
+      // Handle notifications
+      if (activityForm != null) await _handleNotifications(attendee, activityOwner, activityForm);
+      
 
       return right(unit);
     } on FirebaseAuthException catch (e) {
-      if (e.toString().contains('permission-denied') || e.toString().contains('unknown')) {
+      if (e.code == 'permission-denied' || e.code == 'unknown') {
         return left(const AttendeeFormFailure.attendeePermissionDenied());
-      } else {
-        return left(AttendeeFormFailure.attendeeServerError(failed: e.code));
       }
+      return left(AttendeeFormFailure.attendeeServerError(failed: e.code));
     } catch (e) {
-      if (e.toString().contains('permission-denied')) {
-        return left(const AttendeeFormFailure.attendeePermissionDenied());
-      }
       return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
     }
   }
 
+  Future<void> _saveAttendeeToFirestore(AttendeeItem attendee) async {
+    final attendeeFormDto = AttendeeItemDto.fromDomain(attendee).toJson();
+    final activityDoc = await _fireStore.activityDocument(attendee.reservationId.getOrCrash());
+    final attendeeDoc = activityDoc.collection('attendees').doc(attendee.attendeeOwnerId.getOrCrash());
+    final attendeeProfileDoc = _fireStore.collection('users').doc(attendee.attendeeOwnerId.getOrCrash());
+    final profileAttReservations = attendeeProfileDoc.collection('attending').doc(attendee.reservationId.getOrCrash());
 
-  /// send vendor confirmation of
+    await Future.wait([
+      attendeeDoc.set(attendeeFormDto, SetOptions(merge: true)),
+      profileAttReservations.set(attendeeFormDto, SetOptions(merge: true)),
+    ]);
+  }
 
+  /// attendee type functions
+  Future<AttendeeItem> _processAttendeeType(
+  AttendeeItem attendee,
+  ActivityManagerForm? activityForm,
+  List<PaymentIntent>? payments,
+    ) async {
+    if (activityForm == null) return attendee; // Skip processing if no activityForm
+
+    switch (attendee.attendeeType) {
+      case AttendeeType.tickets:
+        return _processTicketAttendee(attendee, activityForm);
+
+      case AttendeeType.vendor:
+        return _processVendorAttendee(attendee, activityForm, payments);
+
+      case AttendeeType.free:
+        final limitError = await _validateAttendanceLimits(attendee, activityForm);
+        if (limitError != null) throw limitError; // Exit early if limit is reached
+        return attendee;
+
+      case AttendeeType.pass:
+      case AttendeeType.instructor:
+      case AttendeeType.partner:
+      case AttendeeType.organization:
+      case AttendeeType.interested:
+        return attendee; // No extra processing needed for these types
+      default:
+        return attendee;
+    }
+  }
+
+  Future<void> _handleNotifications(
+  AttendeeItem attendee,
+  UserProfileModel activityOwner,
+  ActivityManagerForm activityForm,
+  ) async {
+
+    final String activityTitle = activityForm.profileService.activityBackground.activityTitle.value.fold((l) => 'an Event near you', (r) => r);
+    final String activityLink =  'https://cincout.ca${reservationRoute(activityForm.activityFormId.getOrCrash())}';
+    final String? activityImageUrl = (activityForm.profileService.activityBackground.activityProfileImages?.isNotEmpty == true) ? activityForm.profileService.activityBackground.activityProfileImages!.first.uriPath : null;
+    final String activitySettingsLink = 'https://cincout.ca${reservationSettingsRoute(activityForm.activityFormId.getOrCrash(), SettingNavMarker.vendorForm.name)}';
+    final String currentUserEmail = _firebaseAuth.currentUser?.email ?? '';
+
+    final String activityOwnerEmail = activityOwner.emailAddress.getOrCrash();
+    final String activityOwnerVendorsLink = '/${DashboardMarker.resVendorForms.name.toString()}/reservation/${activityForm.activityFormId.getOrCrash()}';
+    final String attendeeTitle = _firebaseAuth.currentUser?.displayName ?? '';
+    
+
+    await _communcationFacade.notififyAttendeeOfStatusUpdate(statusType: attendee.contactStatus ?? ContactStatus.pending, attendee: attendee, currentUserEmail: currentUserEmail, activitySettingsLink: activitySettingsLink, activityTitle: activityTitle, activityImageUrl: activityImageUrl);
+    await _communcationFacade.notifyReservationOwnerOfAttendeeStatus(statusType: attendee.contactStatus ?? ContactStatus.pending, reservationId: attendee.reservationId.getOrCrash(), attendeeName: attendeeTitle, attendeeType: attendee.attendeeType, activityOwnerId: activityOwner.userId.getOrCrash(), activityOwnerEmail: activityOwnerEmail, activityLink: activityLink, activityTitle: activityTitle, activityImageUrl: activityImageUrl);
+
+  }
+
+  AttendeeItem _updatePaymentIntent(AttendeeItem attendee, String? paymentIntentId) {
+  return paymentIntentId != null
+      ? attendee.copyWith(paymentIntentId: paymentIntentId)
+      : attendee;
+}
+  
+  Future<AttendeeFormFailure?> _validateAttendanceLimits(AttendeeItem attendee, ActivityManagerForm activityForm) async {
+    if (attendee.attendeeType == AttendeeType.free) {
+      final attendeeCount = await _fireStore
+          .collection('activity_directory')
+          .doc(attendee.reservationId.getOrCrash())
+          .collection('attendees')
+          .where('attendeeType', isEqualTo: 'AttendeeType.free')
+          .where('contactStatus', isEqualTo: 'ContactStatus.joined')
+          .count()
+          .get();
+
+      if (activityForm.activityAttendance.attendanceLimit != null &&
+          activityForm.activityAttendance.attendanceLimit != 0 &&
+          activityForm.activityAttendance.attendanceLimit! <= (attendeeCount.count ?? 0)) {
+        return const AttendeeFormFailure.attendeeLimitReached();
+      }
+    }
+    return null;
+  }
+
+  Future<AttendeeItem> _processTicketAttendee(
+  AttendeeItem attendee,
+  ActivityManagerForm activityForm,
+  ) async {
+    await createNewTicket(attendeeItem: attendee, activityForm: activityForm, isOnHold: false);
+    return attendee;
+  }
+
+  Future<AttendeeItem> _processVendorAttendee(
+    AttendeeItem attendee,
+    ActivityManagerForm activityForm,
+    List<PaymentIntent>? payments,
+  ) async {
+    if (attendee.vendorForm == null) return attendee;
+
+    VendorMerchantForm vendorForm = attendee.vendorForm!;
+
+    if (payments != null && payments.isNotEmpty) {
+      vendorForm = _updateVendorPayments(vendorForm, payments);
+    }
+
+    if (isDocumentsOptionValid(vendorForm)) {
+      vendorForm = await _uploadVendorDocuments(vendorForm, activityForm);
+    }
+
+    return attendee.copyWith(vendorForm: vendorForm);
+  }
+
+
+  VendorMerchantForm _updateVendorPayments(VendorMerchantForm vendorForm, List<PaymentIntent> payments) {
+    List<MVBoothPayments> updatedPayments = vendorForm.boothPaymentOptions?.map((booth) {
+      PaymentIntent? payment = payments.firstWhere(
+        (p) => booth.selectedId != null && p.itemId == booth.selectedId?.getOrCrash(),
+        orElse: () => const PaymentIntent(),
+      );
+      return booth.copyWith(stripePaymentIntent: payment, status: AvailabilityStatus.requested);
+    }).toList() ?? [];
+
+    return vendorForm.copyWith(boothPaymentOptions: updatedPayments);
+  }
+
+  Future<VendorMerchantForm> _uploadVendorDocuments(VendorMerchantForm vendorForm, ActivityManagerForm activityForm) async {
+    List<MVCustomOption> updatedOptions = List.from(vendorForm.customOptions ?? []);
+    MVCustomOption? documentOption = getDocumentRuleOption(vendorForm);
+    List<DocumentFormOption> documents = List.from(getDocumentsList(vendorForm) ?? []);
+
+    for (var document in documents) {
+      if (document.documentForm.imageToUpload != null) {
+        final uri = await _uploadDocumentToStorage(activityForm.activityFormId.getOrCrash(), document);
+        documents = documents.map((doc) {
+          return doc.documentForm.key == document.documentForm.key
+              ? DocumentFormOption(documentForm: ImageUpload(key: uri, uriPath: uri), isRequiredOption: doc.isRequiredOption)
+              : doc;
+        }).toList();
+      }
+    }
+
+    if (documentOption != null) {
+      documentOption = documentOption.copyWith(customRuleOption: documentOption.customRuleOption?.copyWith(customDocumentOptions: documents));
+      int index = updatedOptions.indexWhere((opt) => opt.customRuleOption?.ruleId == documentOption?.customRuleOption?.ruleId);
+      if (index >= 0) updatedOptions[index] = documentOption;
+    }
+
+    return vendorForm.copyWith(customOptions: updatedOptions);
+  }
+
+  Future<String> _uploadDocumentToStorage(String activityId, DocumentFormOption document) async {
+    final metadata = SettableMetadata(contentType: 'application/pdf');
+    final urlId = UniqueId();
+    final reference = _firebaseStorage.ref('activity_directory').child(activityId);
+    final filePath = 'vendor_form/${document.documentForm.key}/attendee_form/${urlId.getOrCrash()}.pdf';
+    await reference.child(filePath).putData(document.documentForm.imageToUpload!, metadata);
+    return reference.child(filePath).getDownloadURL();
+  }
 
   /// check if ticket limit is reached and put ticket on hold until payment has gone through...
   @override
@@ -372,8 +567,13 @@ class AttendeeFormFacade implements ATTAuthFacade {
 
       attendeeDoc.delete();
 
-      await _firebaseMessaging.unsubscribeFromTopic(attendeeItem.reservationId.getOrCrash());
-
+      
+      // if (kIsWeb == false) {
+      //   await _firebaseMessaging.unsubscribeFromTopic(attendeeItem.reservationId.getOrCrash());
+      // } else {
+        
+      // }
+      
       return right(unit);
     } on FirebaseAuthException catch (e) {
       if (e.toString().contains('permission-denied') || e.toString().contains('unknown')) {
@@ -508,21 +708,13 @@ class AttendeeFormFacade implements ATTAuthFacade {
           }
 
 
-         final String activityTitle = activityForm.profileService.activityBackground.activityTitle.value.fold((l) => 'an Event near you', (r) => r);
-         final String activityLink =  'https://cincout.ca${reservationRoute(activityForm.activityFormId.getOrCrash())}';
-         final String activitySettingsLink = 'https://cincout.ca${reservationSettingsRoute(activityForm.activityFormId.getOrCrash(), SettingNavMarker.vendorForm.name)}';
-         final String vendorEmail = attendeeProfile.emailAddress.getOrCrash();
-         final String vendorName = vendorProfile.brandName.getOrCrash();
-
-         final String activityOwnerEmail = activityOwner.emailAddress.getOrCrash();
-         final String activityOwnerVendorsLink = '/${DashboardMarker.resVendorForms.name.toString()}/reservation/${activityForm.activityFormId.getOrCrash()}';
          // final String attendeeTitle = _firebaseAuth.currentUser?.displayName ?? '';
 
 
-         if (status != AvailabilityStatus.cancelled || status != AvailabilityStatus.confirmed) {
-           await _notificationFacade.attendeeVendorUpdateNotification(reservationId: attendee.reservationId.getOrCrash(), activityTitle: activityTitle, attendee: attendee);
-           await _emailFacade.createEmailNotification(sendTo: [vendorEmail], template: 'attendee_vendor_updates_received', button_link: activityLink, reference_body_title: activityTitle, attachment: null);
-         }
+        //  if (status != AvailabilityStatus.cancelled || status != AvailabilityStatus.confirmed) {
+        //   //  await _notificationFacade.attendeeVendorUpdateNotification(reservationId: attendee.reservationId.getOrCrash(), activityTitle: activityTitle, attendee: attendee);
+        //   //  await _emailFacade.createEmailNotification(sendTo: [vendorEmail], template: 'attendee_vendor_updates_received', button_link: activityLink, reference_body_title: activityTitle, attachment: null);
+        //  }
 
          /// update via email
          /// send push notification
@@ -535,19 +727,20 @@ class AttendeeFormFacade implements ATTAuthFacade {
                );
                /// send email from generated pdf
 
-                final invoiceNumber = await AttendeeFacade.instance.getNumberOfAttending(attendeeOwnerId: attendee.attendeeOwnerId.getOrCrash(), status: ContactStatus.joined, attendingType: AttendeeType.vendor, isInterested: null) ?? 1;
-                final invoicePdf = await generateReceiptPdf(activityForm, activityOwner, attendeeProfile, vendorProfile, attendee, invoiceNumber);
-                final String base64File = base64Encode(invoicePdf);
+              //   final invoiceNumber = await AttendeeFacade.instance.getNumberOfAttending(attendeeOwnerId: attendee.attendeeOwnerId.getOrCrash(), status: ContactStatus.joined, attendingType: AttendeeType.vendor, isInterested: null) ?? 1;
+              //   final invoicePdf = await generateReceiptPdf(activityForm, activityOwner, attendeeProfile, vendorProfile, attendee, invoiceNumber);
+              //   final String base64File = base64Encode(invoicePdf);
 
-               final Map<String, dynamic> attachment = {
-                 'content': base64File,
-                 'filename': '${attendee.attendeeOwnerId.getOrCrash().padLeft(4, '0')}_receipt.pdf',
-               };
+              //  final Map<String, dynamic> attachment = {
+              //    'content': base64File,
+              //    'filename': '${attendee.attendeeOwnerId.getOrCrash().padLeft(4, '0')}_receipt.pdf',
+              //  };
 
-               await _emailFacade.createEmailNotification(sendTo: [vendorEmail], template: 'attendee_vendor_confirmation_received', button_link: activitySettingsLink, reference_body_title: activityTitle, attachment: attachment);
+              //  await _emailFacade.createEmailNotification(sendTo: [vendorEmail], template: 'attendee_vendor_confirmation_received', button_link: activitySettingsLink, reference_body_title: activityTitle, attachment: attachment);
              }
            case AvailabilityStatus.refunded:
              if (vendorNoLongerEligible(newAttendee.vendorForm?.boothPaymentOptions ?? [])) {
+               
                newAttendee = newAttendee.copyWith(
                    contactStatus: ContactStatus.requested
                );
@@ -560,7 +753,7 @@ class AttendeeFormFacade implements ATTAuthFacade {
                newAttendee = newAttendee.copyWith(
                    contactStatus: ContactStatus.requested
                );
-               await _emailFacade.createEmailNotification(sendTo: [vendorEmail], template: 'activity_owner_cancellation_received', button_link: activityLink, reference_body_title: activityTitle, attachment: null);
+              //  await _emailFacade.createEmailNotification(sendTo: [vendorEmail], template: 'activity_owner_cancellation_received', button_link: activityLink, reference_body_title: activityTitle, attachment: null);
              }
              break;
            case AvailabilityStatus.cancelled:
@@ -571,9 +764,9 @@ class AttendeeFormFacade implements ATTAuthFacade {
                );
              }
 
-             if (_firebaseAuth.currentUser?.uid != activityOwner.userId.getOrCrash()) {
-                await _emailFacade.createEmailNotification(sendTo: [activityOwnerEmail], template: 'attendee_vendor_cancelled_received', button_link: activityLink, reference_body_title: vendorName, attachment: null);
-             }
+            //  if (_firebaseAuth.currentUser?.uid != activityOwner.userId.getOrCrash()) {
+            //     await _emailFacade.createEmailNotification(sendTo: [activityOwnerEmail], template: 'attendee_vendor_cancelled_received', button_link: activityLink, reference_body_title: vendorName, attachment: null);
+            //  }
            default:
              break;
          }
@@ -586,6 +779,18 @@ class AttendeeFormFacade implements ATTAuthFacade {
 
          attendeeDoc.update(attendeeFormDto);
 
+
+        //  final String activityTitle = activityForm.profileService.activityBackground.activityTitle.value.fold((l) => 'an Event near you', (r) => r);
+        //  final String activityLink =  'https://cincout.ca${reservationRoute(activityForm.activityFormId.getOrCrash())}';
+        //  final String activitySettingsLink = 'https://cincout.ca${reservationSettingsRoute(activityForm.activityFormId.getOrCrash(), SettingNavMarker.vendorForm.name)}';
+        //  final String vendorEmail = attendeeProfile.emailAddress.getOrCrash();
+        //  final String vendorName = vendorProfile.brandName.getOrCrash();
+
+        //  final String activityOwnerEmail = activityOwner.emailAddress.getOrCrash();
+        //  final String activityOwnerVendorsLink = '/${DashboardMarker.resVendorForms.name.toString()}/reservation/${activityForm.activityFormId.getOrCrash()}';
+         
+         _handleVendorNotifications(status: status, payments: newAttendee.vendorForm?.boothPaymentOptions, activityForm: activityForm, attendee: newAttendee, attendeeProfile: attendeeProfile, activityOwner: activityOwner, vendorProfile: vendorProfile);
+
        }
 
        return right(unit);
@@ -593,6 +798,30 @@ class AttendeeFormFacade implements ATTAuthFacade {
        return left(AttendeeFormFailure.attendeeServerError(failed: e.toString()));
      }
   }
+
+  Future<void> _handleVendorNotifications({
+    required AvailabilityStatus status, 
+    required List<MVBoothPayments>? payments,
+    required ActivityManagerForm activityForm,
+    required AttendeeItem attendee,
+    required UserProfileModel attendeeProfile,
+    required UserProfileModel activityOwner,
+    required EventMerchantVendorProfile vendorProfile,
+  }) async {
+      final String activityTitle = activityForm.profileService.activityBackground.activityTitle.value.fold((l) => 'an Event near you', (r) => r);
+      final String activityLink =  'https://cincout.ca${reservationRoute(activityForm.activityFormId.getOrCrash())}';
+      final String activitySettingsLink = 'https://cincout.ca${reservationSettingsRoute(activityForm.activityFormId.getOrCrash(), SettingNavMarker.vendorForm.name)}';
+      final String vendorEmail = attendeeProfile.emailAddress.getOrCrash();
+      final String vendorName = vendorProfile.brandName.getOrCrash();
+
+      final String activityOwnerEmail = activityOwner.emailAddress.getOrCrash();
+      final String activityOwnerVendorsLink = '/${DashboardMarker.resVendorForms.name.toString()}/reservation/${activityForm.activityFormId.getOrCrash()}';
+
+      _communcationFacade.notifiyReservationOwnerOfAttendeeApplicationStatus(applicationStatus: status, activityOwnerEmail: activityOwnerEmail, activityLink: activityLink, vendorName: vendorName);
+      if ((_firebaseAuth.currentUser?.uid != attendee.attendeeOwnerId.getOrCrash())) _communcationFacade.notifyAttendeeOfApplicationStatusUpdate(applicationStatus: status, payments: payments, activityForm: activityForm, attendee: attendee, activityOwner: activityOwner, attendeeProfile: attendeeProfile, vendorProfile: vendorProfile, applicantEmail: vendorEmail, activityLink: activityLink, activitySettingsLink: activitySettingsLink, activityTitle: activityTitle);
+
+  }
+
 }
 
 

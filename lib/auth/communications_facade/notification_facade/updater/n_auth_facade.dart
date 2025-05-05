@@ -3,7 +3,63 @@ part of check_in_facade;
 abstract class NAuthFacade {
 
 
+  /// masteer notification functions
+  /// [ReservationItem] based notificartions  
+  /// updates to reservation (sent to facility owner)
+  /// updates to reservation (sent to attendees)
+  
+  // all [ListingManagerForm] based notifications
+  Future<Either<ListingFormFailure, Unit>> sendFacilityOwnerNotification({
+    required String facilityOwnerId,
+    required String reservationId,
+    required AccountNotificationType type,
+    String? message,
+    String? title
+  });
+
   /// all [ReservationItem] based notifications
+  Future<Either<ReservationFormFailure, Unit>> sendReservationOwnerNotification({
+    required String reservationId,
+    required String ownerId,
+    required AccountNotificationType type,
+    String? message,
+    String? title,
+  });
+
+
+  /// all [AttendeeItem] based notifications
+  Future<Either<AttendeeFormFailure, Unit>> sendAttendeeNotification({
+    required String reservationId,
+    required AttendeeItem attendee,
+    required AccountNotificationType type,
+    String? message,
+    String? title
+  });
+
+  Future<void> createNotification({
+    required AccountNotificationItem notificationItem,
+  });
+
+  /// updates & delete functions
+  Future<void> updateNotification({
+    required String recipientId,
+    required String notificationId,
+    bool? isRead,
+    int? openedAtTimeStamp,
+  });
+
+  Future<void> deleteNotificationsAndUnsubscribe({
+    required String reservationId,
+    required String recipientId,
+    required AccountNotificationType type,
+    bool shouldUnsubscribe = false,
+  });
+
+  /// all [ProfileItem] based notifications
+  /// changes made to profile
+  /// changes 
+  // Future<Either<ProfileFormFailure, Unit>> profileBasedNotification({});
+  
 
   // send reservation created notification to facility owners.
   Future<Either<ReservationFormFailure, Unit>> createReservationCreatedNotification({required String facilityOwner});

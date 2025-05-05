@@ -6,7 +6,7 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
   final FirebaseFirestore _fireStore;
   final FirebaseAuth _firebaseAuth;
   final FirebaseStorage _firebaseStorage;
-  final LocationAuthFacade _locationFacade;
+  final LOAuthFacade _locationFacade;
   final GoogleSignIn _googleSignIn;
 
   FirebaseAuthFacade(
@@ -255,107 +255,138 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
   ///
 
 
-  @override
-  Future<Either<AuthFailure, Unit>> signInWithEmailAndPassword({
-    required EmailAddress emailAddress,
-    required String password,
+  Future<Either<AuthFailure, UserProfileModel>> signInWithEmailAndPassword({
+  required EmailAddress emailAddress,
+  required String password,
   }) async {
-
     final emailAddressStr = emailAddress.getOrCrash();
     final passwordStr = password;
 
     try {
-      logout();
+      // Ensure any existing session is logged out
+      await logout();
 
-      await _firebaseAuth.signInWithEmailAndPassword(
+      // Sign in with Firebase
+      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
         email: emailAddressStr,
         password: passwordStr,
       );
 
-      // await authenticate(email: emailAddressStr,
-      //     password: passwordStr,
-      //     urlSegment: 'signInWithPassword');
+      final userId = userCredential.user?.uid;
+      if (userId == null) {
+        return left(const AuthFailure.exceptionError('User ID not found.'));
+      }
 
-      return right(unit);
+      // Fetch the user's profile from Firestore
+      final userSnapshot = await _fireStore.collection('users').doc(userId).get();
+      UserProfileModel userProfile;
+
+      // Check if the user is new or if the profile doesn't exist
+      if ((userCredential.additionalUserInfo?.isNewUser ?? false) || !userSnapshot.exists) {
+        final displayName = userCredential.user?.displayName ?? 'Anon';
+        final nameParts = displayName.split(' ');
+
+        // Create new UserProfileModel
+        userProfile = UserProfileModel(
+          userId: UniqueId.fromUniqueString(userId),
+          legalName: FirstLastName(''),
+          legalSurname: FirstLastName(''),
+          emailAddress: EmailAddress(userCredential.user?.email ?? emailAddressStr),
+          isEmailAuth: userCredential.user?.emailVerified ?? false,
+          photoUri: userCredential.user?.photoURL,
+          isPhoneAuth: false,
+          hasSignedIn: true,
+          joinedDate: DateTime.now(),
+        );
+
+        // Save new user profile to Firestore
+        await createUserToFirestore(id: userId, profile: userProfile);
+      } else {
+        // Fetch existing user profile
+        final userData = userSnapshot.data();
+        if (userData == null) {
+          return left(const AuthFailure.exceptionError('User data is missing.'));
+        }
+        userProfile = UserProfileItemDto.fromJson(userData).toDomain();
+      }
+
+      return right(userProfile);
     } on FirebaseAuthException catch (e) {
+      print('FirebaseAuthException: ${e.toString()}');
       return left(getErrorMessageFromFirebaseException(e));
+    } catch (e) {
+      print('Unexpected Error: ${e.toString()}');
+      return left(AuthFailure.exceptionError(e.toString()));
     }
   }
 
   @override
-  Future<Either<AuthFailure, bool>> signInWithApple() async {
-
+  Future<Either<AuthFailure, UserProfileModel>> signInWithApple() async {
     try {
+      final rawNonce = generateNonce();
+      final nonce = sha256ofString(rawNonce);
 
-        final rawOnce = generateNonce();
-        final nonce = sha256ofString(rawOnce);
+      final oAuthProvider = OAuthProvider('apple.com');
+      late AuthCredential credential;
+      late AuthorizationCredentialAppleID? iosCredential;
 
-
-        final oAuthProvider = OAuthProvider('apple.com');
-        late AuthCredential? credential = null;
-        late AuthorizationCredentialAppleID? iosCredential = null;
-
-        if (kIsWeb) {
-          final result = await _firebaseAuth.signInWithPopup(oAuthProvider);
-          if (result.credential == null) {
-            return left(const AuthFailure.exceptionError('Credentials could not be retrieved'));
-          }
-
-          credential = result.credential!;
-
-        } else {
-          iosCredential = await SignInWithApple.getAppleIDCredential(
-              scopes: [
-                AppleIDAuthorizationScopes.email,
-                AppleIDAuthorizationScopes.fullName
-              ],
-              nonce: nonce
-          );
-          credential = oAuthProvider.credential(
-                idToken: iosCredential.identityToken,
-                accessToken: iosCredential.authorizationCode,
-                rawNonce: rawOnce
-            );
-
+      if (kIsWeb) {
+        final result = await _firebaseAuth.signInWithPopup(oAuthProvider);
+        if (result.credential == null) {
+          return left(const AuthFailure.exceptionError('Credentials could not be retrieved'));
         }
+        credential = result.credential!;
+      } else {
+        iosCredential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: nonce,
+        );
 
+        credential = oAuthProvider.credential(
+          idToken: iosCredential.identityToken,
+          accessToken: iosCredential.authorizationCode,
+          rawNonce: rawNonce,
+        );
+      }
 
-        final appleCredential = await _firebaseAuth.signInWithCredential(credential);
-        final userSnapshot = await _fireStore.collection('users').doc(appleCredential.user?.uid).get();
+      final appleCredential = await _firebaseAuth.signInWithCredential(credential);
+      final userId = appleCredential.user!.uid;
+      final userSnapshot = await _fireStore.collection('users').doc(userId).get();
 
+      UserProfileModel userProfile;
 
-        if (appleCredential.additionalUserInfo?.isNewUser == true || userSnapshot.data()?['emailAddress'] == null) {
+      // Create a new user if not found
+      if (appleCredential.additionalUserInfo?.isNewUser == true || !userSnapshot.exists) {
+        final givenName = iosCredential?.givenName ?? appleCredential.user?.displayName?.split(' ').first ?? 'Anon';
+        final familyName = iosCredential?.familyName ?? appleCredential.user?.displayName?.split(' ').last ?? 'Anon';
 
-          final givenName = appleCredential.user?.displayName ?? iosCredential?.givenName ?? 'Anon';
-          final hasGivenName = givenName != null;
-          final familyName = appleCredential.additionalUserInfo?.username ?? iosCredential?.familyName ?? 'Anon';
-          final hasFamilyName = familyName != null;
+        userProfile = UserProfileModel(
+          userId: UniqueId.fromUniqueString(userId),
+          legalName: FirstLastName(givenName),
+          legalSurname: FirstLastName(familyName),
+          emailAddress: EmailAddress(appleCredential.user?.email ?? 'private'),
+          isEmailAuth: appleCredential.user?.emailVerified ?? false,
+          isPhoneAuth: false,
+          hasSignedIn: true,
+          joinedDate: DateTime.now(),
+        );
 
-          await createUserToFirestore(
-              id: appleCredential.user!.uid,
-              profile: UserProfileModel(
-                  userId: UniqueId.fromUniqueString(appleCredential.user!.uid),
-                  legalName: FirstLastName('${hasGivenName ? givenName : 'Anon'}'),
-                  legalSurname: FirstLastName('${hasFamilyName ? '$familyName' : 'Anon'}'),
-                  emailAddress: EmailAddress(appleCredential.user?.email ?? 'private'),
-                  isEmailAuth: appleCredential.user?.emailVerified ?? false,
-                  isPhoneAuth: false,
-                  hasSignedIn: true,
-                  joinedDate: DateTime.now()
-            )
-          );
+        await createUserToFirestore(
+          id: userId,
+          profile: userProfile,
+        );
 
-          await appleCredential.user?.updateDisplayName('${hasGivenName ? givenName : ''}${hasFamilyName ? ' $familyName' : ''}');
-          return right(false);
-        }
+        await appleCredential.user?.updateDisplayName('$givenName $familyName');
+      } else {
+        // Fetch existing user profile
+        final userData = userSnapshot.data();
+        userProfile = UserProfileItemDto.fromJson(userData!).toDomain();
+      }
 
-
-        if (userSnapshot.data()?['hasSignedIn'] != true) {
-          return right(false);
-        }
-
-
-        return right(true);
+      return right(userProfile);
     } on FirebaseAuthException catch (e) {
       return left(getErrorMessageFromFirebaseException(e));
     } on SignInWithAppleAuthorizationException catch (e) {
@@ -363,10 +394,8 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
         return left(const AuthFailure.exceptionError('Apple Sign In Has Been Cancelled'));
       }
       return left(AuthFailure.exceptionError(e.message));
-    }
-    catch (e) {
-
-      print('uuhh ohh ${e.toString()}');
+    } catch (e) {
+      print('Unexpected Error: ${e.toString()}');
       return left(AuthFailure.exceptionError(e.toString()));
     }
   }
@@ -391,88 +420,95 @@ class FirebaseAuthFacade with ChangeNotifier implements IAuthFacade {
 
 
   @override
-  Future<Either<AuthFailure, bool>> signInWithGoogle() async {
-      try {
+  Future<Either<AuthFailure, UserProfileModel>> signInWithGoogle() async {
+    try {
+      UserProfileModel userProfile;
 
-        if (kIsWeb) {
-          GoogleAuthProvider authProvider = GoogleAuthProvider();
-          final resultWeb = await _firebaseAuth.signInWithPopup(authProvider);
+      if (kIsWeb) {
+        // For Web
+        final GoogleAuthProvider authProvider = GoogleAuthProvider();
+        final resultWeb = await _firebaseAuth.signInWithPopup(authProvider);
 
-          if ((resultWeb.additionalUserInfo?.isNewUser ?? false) && resultWeb.user != null) {
-            await createUserToFirestore(
-                id: resultWeb.user!.uid,
-                profile: UserProfileModel(
-                    userId: UniqueId.fromUniqueString(resultWeb.user!.uid),
-                    legalName: FirstLastName(resultWeb.user!.displayName),
-                    legalSurname: FirstLastName(''),
-                    emailAddress: EmailAddress(resultWeb.user!.email),
-                    photoUri: resultWeb.user?.photoURL,
-                    isEmailAuth: resultWeb.user?.emailVerified ?? false,
-                    isPhoneAuth: false,
-                    hasSignedIn: true,
-                    joinedDate: DateTime.now()
-              )
-            );
-            return right(false);
-          }
-          return right(true);
+        if (resultWeb.user == null) {
+          return left(const AuthFailure.exceptionError('Google Sign-In failed.'));
         }
 
+        final userSnapshot = await _fireStore.collection('users').doc(resultWeb.user!.uid).get();
 
+        if ((resultWeb.additionalUserInfo?.isNewUser ?? false) || !userSnapshot.exists) {
+          final displayName = resultWeb.user!.displayName ?? 'Anon';
+          final nameParts = displayName.split(' ');
+          final legalName = nameParts.isNotEmpty ? nameParts.first : '';
+          final legalSurname = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-        GoogleSignIn googleSignIn = GoogleSignIn();
+          userProfile = UserProfileModel(
+            userId: UniqueId.fromUniqueString(resultWeb.user!.uid),
+            legalName: FirstLastName(legalName),
+            legalSurname: FirstLastName(legalSurname),
+            emailAddress: EmailAddress(resultWeb.user!.email ?? 'private'),
+            photoUri: resultWeb.user!.photoURL,
+            isEmailAuth: resultWeb.user!.emailVerified,
+            isPhoneAuth: false,
+            hasSignedIn: true,
+            joinedDate: DateTime.now(),
+          );
 
-
+          await createUserToFirestore(id: resultWeb.user!.uid, profile: userProfile);
+        } else {
+          userProfile = UserProfileItemDto.fromJson(userSnapshot.data()!).toDomain();
+        }
+      } else {
+        // For Mobile (iOS/Android)
+        final GoogleSignIn googleSignIn = GoogleSignIn();
         final GoogleSignInAccount? googleSignInAccount = await googleSignIn.signIn();
-        //
-        if (googleSignInAccount == null) {
-          return left(const AuthFailure.exceptionError('Google Sign In has been Cancelled'));
-        }
 
-        // print(googleSignInAccount);
+        if (googleSignInAccount == null) {
+          return left(const AuthFailure.exceptionError('Google Sign-In was cancelled.'));
+        }
 
         final GoogleSignInAuthentication googleSignInAuthentication = await googleSignInAccount.authentication;
 
         final AuthCredential credential = GoogleAuthProvider.credential(
-            accessToken: googleSignInAuthentication.accessToken,
-            idToken: googleSignInAuthentication.idToken
+          accessToken: googleSignInAuthentication.accessToken,
+          idToken: googleSignInAuthentication.idToken,
         );
 
-
         final result = await _firebaseAuth.signInWithCredential(credential);
-        final userSnapshot = await _fireStore.collection('users').doc(result.user?.uid).get();
+        final userSnapshot = await _fireStore.collection('users').doc(result.user!.uid).get();
 
-        if ((result.additionalUserInfo?.isNewUser ?? false) && result.user != null || userSnapshot.data()?['emailAddress'] == null) {
-          await createUserToFirestore(
-              id: result.user!.uid,
-              profile: UserProfileModel(
-                  userId: UniqueId.fromUniqueString(result.user!.uid),
-                  legalName: FirstLastName(result.user!.displayName),
-                  legalSurname: FirstLastName(''),
-                  emailAddress: EmailAddress(result.user!.email),
-                  isEmailAuth: result.user?.emailVerified ?? false,
-                  photoUri: result.user?.photoURL,
-                  isPhoneAuth: false,
-                  hasSignedIn: true,
-                  joinedDate: DateTime.now()
-              )
-            );
-          return right(false);
+        if ((result.additionalUserInfo?.isNewUser ?? false) || !userSnapshot.exists) {
+          final displayName = result.user!.displayName ?? 'Anon';
+          final nameParts = displayName.split(' ');
+          final legalName = nameParts.isNotEmpty ? nameParts.first : '';
+          final legalSurname = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+          userProfile = UserProfileModel(
+            userId: UniqueId.fromUniqueString(result.user!.uid),
+            legalName: FirstLastName(legalName),
+            legalSurname: FirstLastName(legalSurname),
+            emailAddress: EmailAddress(result.user!.email ?? 'private'),
+            isEmailAuth: result.user!.emailVerified,
+            photoUri: result.user!.photoURL,
+            isPhoneAuth: false,
+            hasSignedIn: true,
+            joinedDate: DateTime.now(),
+          );
+
+          await createUserToFirestore(id: result.user!.uid, profile: userProfile);
+        } else {
+          userProfile = UserProfileItemDto.fromJson(userSnapshot.data()!).toDomain();
         }
-
-
-        if (userSnapshot.data()?['hasSignedIn'] != true) {
-          return right(false);
-        }
-
-        return right(true);
-      } on FirebaseAuthException catch (e) {
-        return left(getErrorMessageFromFirebaseException(e));
-      } catch (e) {
-        print('uuhh ohh ${e.toString()}');
-        return left(AuthFailure.exceptionError(e.toString()));
       }
-  } 
+
+      return right(userProfile);
+    } on FirebaseAuthException catch (e) {
+      print('FirebaseAuthException: ${e.toString()}');
+      return left(getErrorMessageFromFirebaseException(e));
+    } catch (e) {
+      print('Unexpected Error: ${e.toString()}');
+      return left(AuthFailure.exceptionError(e.toString()));
+    }
+  }
 
 
   @override
@@ -1150,6 +1186,61 @@ class UserProfileFacade {
       return processUserProfile(userData);
     } catch (e) {
       return null;
+    }
+  }
+
+  Future<List<UserProfileModel>> queryByUserProfileSearch({
+    required String firstName,
+    required String lastName,
+    required int limit,
+  }) async {
+    try {
+
+      late QuerySnapshot<Map<String, dynamic>>? surnameQuerySnapshot = null;
+
+      final querySnapshot = await getFirebaseFirestore()
+              .collection('users')
+              .where('legalName', isGreaterThanOrEqualTo: firstName)
+              .where('legalName', isLessThanOrEqualTo: firstName + '\uf8ff')
+              .limit(limit)
+              .get();
+
+      final surnameFirstQuerySnapshot = await getFirebaseFirestore()
+              .collection('users')
+              .where('legalSurname', isGreaterThanOrEqualTo: firstName)
+              .where('legalSurname', isLessThanOrEqualTo: firstName + '\uf8ff')
+              .limit(limit)
+              .get();
+
+      
+        if (lastName.isNotEmpty) {
+          surnameQuerySnapshot = await getFirebaseFirestore()
+              .collection('users')
+              .where('legalSurname', isGreaterThanOrEqualTo: lastName)
+              .where('legalSurname', isLessThanOrEqualTo: lastName + '\uf8ff')
+              .limit(limit)
+              .get();
+        } 
+      
+
+
+      final combinedResults = querySnapshot.docs + surnameFirstQuerySnapshot.docs;
+
+      if (surnameQuerySnapshot != null) {
+        combinedResults.addAll(surnameFirstQuerySnapshot.docs);
+      }
+
+      final uniqueResults = <String, DocumentSnapshot>{};
+      for (var doc in combinedResults) {
+        uniqueResults[doc.id] = doc;
+      }
+      return uniqueResults.values
+          .map((doc) => UserProfileItemDto.fromFireStore(doc).toDomain())
+          .toList();
+
+    } catch (e) {
+      print(e.toString());
+      return [];
     }
   }
 

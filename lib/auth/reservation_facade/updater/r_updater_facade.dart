@@ -5,7 +5,8 @@ abstract class RUpdaterFacade {
   /// create reservation for listing
   Future<Either<ReservationFormFailure, Unit>> createReservationForm({
     required ReservationItem reservationForm,
-    required ListingManagerForm listing,
+    required ListingManagerForm? listingForm,
+    required ActivityManagerForm? activityForm,
     required String paymentIntentId
 });
 

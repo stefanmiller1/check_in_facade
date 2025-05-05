@@ -28,6 +28,10 @@ class FirebaseChatCore {
   FirebaseFirestore getFirebaseFirestore() => config.firebaseAppName != null
       ? FirebaseFirestore.instanceFor(app: Firebase.app(config.firebaseAppName!))
       : FirebaseFirestore.instance;
+      
+  FirebaseFunctions getFirebaseFunctions() => config.firebaseAppName != null
+    ? FirebaseFunctions.instanceFor(app: Firebase.app(config.firebaseAppName!))
+    : FirebaseFunctions.instance;
 
   /// Sets custom config to change default names for rooms
   /// and users collections. Also see [FirebaseChatCoreConfig].
@@ -41,6 +45,7 @@ class FirebaseChatCore {
   /// and [metadata] for any additional custom data.
   Future<types.Room> createGroupRoom({
     types.Role creatorRole = types.Role.admin,
+    String? roomId,
     String? imageUrl,
     Map<String, dynamic>? metadata,
     required String name,
@@ -57,27 +62,33 @@ class FirebaseChatCore {
 
     final roomUsers = [types.User.fromJson(currentUser)] + users;
 
-    final room = await getFirebaseFirestore()
+    final room = roomId != null
+      ? getFirebaseFirestore()
         .collection(config.roomsCollectionName)
-        .add({
+        .doc(roomId)
+      : getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .doc();
+
+    await room.set({
       'createdAt': FieldValue.serverTimestamp(),
       'imageUrl': imageUrl,
       'metadata': metadata,
       'name': name,
+      'isArchive': false,
       'type': types.RoomType.group.toShortString(),
       'updatedAt': FieldValue.serverTimestamp(),
       'userIds': roomUsers.map((u) => u.id).toList(),
-      'userRoles': roomUsers.fold<Map<String, String?>>(
-        {},
-            (previousValue, user) => {
-          ...previousValue,
-          user.id: user.role?.toShortString(),
+      'userRoles': roomUsers.fold<Map<String, String?>>({},
+      (previousValue, user) => {
+        ...previousValue,
+        user.id: user.role?.toShortString(),
         },
       ),
     });
 
     return types.Room(
-      id: room.id,
+      id: roomId ?? room.id,
       imageUrl: imageUrl,
       metadata: metadata,
       name: name,
@@ -86,45 +97,231 @@ class FirebaseChatCore {
     );
   }
 
-  /// Creates a direct chat for 2 people. Add [metadata] for any additional
-  /// custom data.
-  Future<Either<ReservationFormFailure, Unit>> createRoom(
-        String roomId,
+/// Adds a user to an existing group chat room.
+Future<void> addUserToGroupRoom({
+  required String roomId,
+  required String userId,
+}) async {
+  final fu = firebaseUser;
+  if (fu == null) return Future.error("User not authenticated");
+
+  try {
+    final roomRef = getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .doc(roomId);
+    final roomSnapshot = await roomRef.get();
+
+    if (!roomSnapshot.exists) {
+      return Future.error("Chat room does not exist");
+    }
+
+    final roomData = roomSnapshot.data();
+    if (roomData == null || !roomData.containsKey('userIds') || !roomData.containsKey('userRoles')) {
+      return Future.error("Invalid chat room data");
+    }
+
+    final List<dynamic> userIds = List.from(roomData['userIds']);
+    final Map<String, String?> userRoles = Map<String, String?>.from(roomData['userRoles']);
+
+    // Check if the user is already in the room
+    if (userIds.contains(userId)) {
+      return;
+    }
+
+    // Add the new user to the room
+    userIds.add(userId);
+    userRoles[userId] = types.Role.user.toShortString();
+
+    await roomRef.update({'userIds': userIds, 'userRoles': userRoles});
+  } catch (e) {
+    return Future.error("Failed to add user to group room: $e");
+  }
+  }
+
+/// Removes a user from a group chat room while ensuring the room remains valid.
+Future<void> removeUserFromGroupRoom({
+  required String roomId,
+  required String userId,
+}) async {
+  final fu = firebaseUser;
+  if (fu == null) return Future.error("User not authenticated");
+
+  try {
+    final roomRef = getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .doc(roomId);
+    final roomSnapshot = await roomRef.get();
+
+    if (!roomSnapshot.exists) {
+      return Future.error("Chat room does not exist");
+    }
+
+    final roomData = roomSnapshot.data();
+    if (roomData == null || !roomData.containsKey('userIds') || !roomData.containsKey('userRoles')) {
+      return Future.error("Invalid chat room data");
+    }
+
+    List<dynamic> userIds = List.from(roomData['userIds']);
+    Map<String, String?> userRoles = Map<String, String?>.from(roomData['userRoles']);
+
+    // Check if the user is in the room
+    if (!userIds.contains(userId)) {
+      return Future.error("User is not in the room");
+    }
+
+    // Prevent the last user from being removed
+    if (userIds.length == 1) {
+      return Future.error("Cannot remove the last user from the room");
+    }
+
+    // Remove the user from the room
+    userIds.remove(userId);
+    userRoles.remove(userId);
+
+    await roomRef.update({'userIds': userIds, 'userRoles': userRoles});
+  } catch (e) {
+    return Future.error("Failed to remove user from group room: $e");
+  }
+}
+
+/// Updates a user's role to "admin" in a group chat.
+Future<void> makeUserAdmin({
+  required String roomId,
+  required String userId,
+}) async {
+  final fu = firebaseUser;
+  if (fu == null) return Future.error("User not authenticated");
+
+  try {
+    final roomRef = getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .doc(roomId);
+    final roomSnapshot = await roomRef.get();
+
+    if (!roomSnapshot.exists) {
+      return Future.error("Chat room does not exist");
+    }
+
+    final roomData = roomSnapshot.data();
+    if (roomData == null || !roomData.containsKey('userRoles')) {
+      return Future.error("Invalid chat room data");
+    }
+
+    Map<String, String?> userRoles = Map<String, String?>.from(roomData['userRoles']);
+
+    // Check if the user is already an admin
+    if (userRoles.containsKey(userId) && userRoles[userId] == types.Role.admin.toShortString()) {
+      return; // No need to update if already an admin
+    }
+
+    // Update user role to admin
+    userRoles[userId] = types.Role.admin.toShortString();
+
+    await roomRef.update({'userRoles': userRoles});
+  } catch (e) {
+    return Future.error("Failed to make user admin: $e");
+  }
+}
+
+
+  Future<types.Room> createDirectRoom(
         String otherUserId,
         String roomName,
+        String? imageUrl,
         {
         Map<String, dynamic>? metadata,
       }) async {
     final fu = firebaseUser;
 
-    if (fu == null) return left(const ReservationFormFailure.chatRoomCreateError());
+    if (fu == null) return Future.error('User does not exist');
+
+    final currentUser = await fetchUser(
+      getFirebaseFirestore(),
+      firebaseUser!.uid,
+      config.usersCollectionName,
+      role: types.Role.admin.toShortString(),
+    );
+
+    final otherUser = await fetchUser(
+      getFirebaseFirestore(),
+      otherUserId,
+      config.usersCollectionName,
+      role: types.Role.admin.toShortString(),
+    );
 
     // Sort two user ids array to always have the same array for both users,
     // this will make it easy to find the room if exist and make one read only.
-    final userIds = [fu.uid, otherUserId]..sort();
+    final roomUsers = [types.User.fromJson(currentUser), types.User.fromJson(otherUser)];
+    // Check if the room already exists
+    final existingRooms = await getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .where('userIds', arrayContains: fu.uid)
+        .where('type', isEqualTo: types.RoomType.direct.toShortString())
+        .get();
+
+    for (var doc in existingRooms.docs) {
+      final data = doc.data();
+      if (data.containsKey('userIds')) {
+        final List<String> existingUserIds = List<String>.from(data['userIds']);
+
+        if (existingUserIds.toSet().containsAll(roomUsers.map((user) => user.id)) &&
+            existingUserIds.length == 2) {
+          // A direct message room between these users already exists, return it
+          return types.Room(
+            id: doc.id,
+            imageUrl: data['imageUrl'],
+            metadata: data['metadata'],
+            name: data['name'],
+            type: types.RoomType.direct,
+            users: roomUsers
+          );
+        }
+      }
+    }
 
     // Create new room with sorted user ids array.
-    try {
-
-      await getFirebaseFirestore()
-          .collection(config.roomsCollectionName).doc(roomId).set({
+      final room = await getFirebaseFirestore()
+        .collection(config.roomsCollectionName).add({
         'isArchive': false,
         'createdAt': FieldValue.serverTimestamp(),
-        'imageUrl': null,
+        'imageUrl': imageUrl,
         'metadata': metadata,
         'name': roomName,
         'type': types.RoomType.direct.toShortString(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'userIds': userIds,
-        'userRoles': null,
+        'userIds': roomUsers.map((u) => u.id).toList(),
+        'userRoles': roomUsers.fold<Map<String, String?>>(
+        {},
+            (previousValue, user) => {
+            ...previousValue,
+            user.id: user.role?.toShortString(),
+          },
+        ),
       });
 
-      return right(unit);
-    } on FirebaseAuthException catch (e) {
-      return left(ReservationFormFailure.firebaseError(failed: e.message));
-    } catch (e) {
-      return left(const ReservationFormFailure.reservationServerError());
-    }
+      await subscribeUserToTopic(
+        getFirebaseFirestore(),
+        getFirebaseFunctions(),
+        room.id, 
+        firebaseUser!.uid,
+        kIsWeb
+      );
+      await subscribeUserToTopic(
+        getFirebaseFirestore(),
+        getFirebaseFunctions(),
+        room.id, 
+        otherUserId,
+        kIsWeb
+      );
+
+      return types.Room(
+      id: room.id,
+      imageUrl: imageUrl,
+      metadata: metadata,
+      name: roomName,
+      type: types.RoomType.direct,
+      users: roomUsers,
+    );
   }
 
   /// Creates [types.User] in Firebase to store name and avatar used on
@@ -254,22 +451,23 @@ class FirebaseChatCore {
   /// 3) Create an Index (Firestore Database -> Indexes tab) where collection ID
   /// is `rooms`, field indexed are `userIds` (type Arrays) and `updatedAt`
   /// (type Descending), query scope is `Collection`
-  Stream<List<types.Room>> rooms({bool orderByUpdatedAt = false, required bool isArchived}) {
+  Stream<List<types.Room>> rooms({bool orderByUpdatedAt = false, required types.RoomType? roomType, required bool isArchived}) {
     final fu = firebaseUser;
 
     if (fu == null) return const Stream.empty();
 
-    final collection = orderByUpdatedAt
-        ? getFirebaseFirestore()
+    final collection = (roomType != null) ? getFirebaseFirestore()
         .collection(config.roomsCollectionName)
         .where('userIds', arrayContains: fu.uid)
         .where('isArchive', isEqualTo: isArchived)
-        .orderBy('updatedAt', descending: true)
-        : getFirebaseFirestore()
+        .where('type', isEqualTo: roomType.toShortString())
+        .orderBy('updatedAt', descending: orderByUpdatedAt) : getFirebaseFirestore()
         .collection(config.roomsCollectionName)
         .where('userIds', arrayContains: fu.uid)
-        .where('isArchive', isEqualTo: isArchived);
+        .where('isArchive', isEqualTo: isArchived)
+        .orderBy('updatedAt', descending: orderByUpdatedAt);
 
+        
 
     return collection.snapshots().asyncMap(
           (query) {
@@ -309,7 +507,7 @@ class FirebaseChatCore {
   /// Sends a message to the Firestore. Accepts any partial message and a
   /// room ID. If arbitraty data is provided in the [partialMessage]
   /// does nothing.
-  void sendMessage(dynamic partialMessage, String roomId) async {
+  void sendMessage(dynamic partialMessage, types.Message? reply, String roomId) async {
     if (firebaseUser == null) return;
 
     types.Message? message;
@@ -340,24 +538,30 @@ class FirebaseChatCore {
       );
     } else if (partialMessage is types.SystemMessage) {
       message = types.SystemMessage(
-        author: types.User(id: firebaseUser!.uid),
+        author: types.User(id: 'system'),
         text: partialMessage.text,
         id: '',
       );
     }
 
     if (message != null) {
+      if (reply != null) {
+        
+        message = message.copyWith(
+          repliedMessage: reply
+        );
+      } 
       final messageMap = message.toJson();
       messageMap.removeWhere((key, value) => key == 'author' || key == 'id');
-      messageMap['authorId'] = firebaseUser!.uid;
+      messageMap['authorId'] = message.author.id;
       messageMap['createdAt'] = FieldValue.serverTimestamp();
       messageMap['updatedAt'] = FieldValue.serverTimestamp();
+      messageMap['status'] = types.Status.sending.name;
 
+  
       await getFirebaseFirestore()
           .collection('${config.roomsCollectionName}/$roomId/messages')
           .add(messageMap);
-
-
       await getFirebaseFirestore()
           .collection(config.roomsCollectionName)
           .doc(roomId)
@@ -371,12 +575,22 @@ class FirebaseChatCore {
     if (firebaseUser == null) return;
     // if (message.author.id != firebaseUser!.uid) return;
 
+    final currentUserId = firebaseUser!.uid;
     final messageMap = message.toJson();
     messageMap.removeWhere(
           (key, value) => key == 'author' || key == 'createdAt' || key == 'id',
     );
     messageMap['authorId'] = message.author.id;
     messageMap['updatedAt'] = FieldValue.serverTimestamp();
+    // Ensure userStatus is stored as a map in metadata and only update for the current user
+  final Map<String, String> updatedUserStatus = Map<String, String>.from(message.metadata?['userStatus'] ?? {});
+  updatedUserStatus[currentUserId] = types.Status.seen.name;
+
+  messageMap['metadata'] = {
+    ...message.metadata ?? {},
+    'userStatus': updatedUserStatus,
+  };
+
 
     await getFirebaseFirestore()
         .collection('${config.roomsCollectionName}/$roomId/messages')
@@ -451,33 +665,70 @@ class FirebaseChatCore {
 
 
   /// send notification to everyone in room
-  void sendDirectNotifications(List<String> userIds, types.PartialText textMessage, String reservationId) async  {
+  void sendDirectNotifications(List<String> userIds, String sentFromName, types.PartialText textMessage, String route, Map<String, dynamic> metaData) async  {
   if (firebaseUser == null) return;
 
 
       for (String userId in userIds) {
+        if (userId == firebaseUser?.uid) return;
         final userInfo = await getFirebaseFirestore().collection(config.usersCollectionName).doc(userId).get();
 
         final UniqueId notificationId = UniqueId();
-        final notificationDto = AccountNotificationItemDto(notificationId: notificationId.getOrCrash(), isRead: false, receivedAtTimeStamp: DateTime.now().millisecondsSinceEpoch, sentFromId: firebaseUser?.uid, notificationType: AccountNotificationType.message.toString(), reservationId: reservationId).toJson();
+        final notificationDto = AccountNotificationItemDto(notificationId: notificationId.getOrCrash(), isRead: false, receivedAtTimeStamp: DateTime.now().millisecondsSinceEpoch, sentFromId: firebaseUser?.uid, notificationType: AccountNotificationType.message.toString()).toJson();
 
-        /// save notification is users profile
-        final resOwnerDoc = getFirebaseFirestore().collection('users').doc(userId);
-        resOwnerDoc.collection('notifications').doc(notificationId.getOrCrash()).set(notificationDto);
-
+        
         sendPushNotification(
-            userInfo.data().toString().contains('token') ? userInfo['token'] : null,
-            userInfo.data().toString().contains('webToken') ? userInfo['webToken'] : null,
-            <String, dynamic>{
-              'reservationId': reservationId,
-              'status': 'done',
-              'link': '/${DashboardMarker.chat.name.toString()}/$reservationId'
-            },
-            '/${DashboardMarker.reservations.name.toString()}/$reservationId',
-            '${firebaseUser?.displayName ?? 'Someone'} Sent you a message',
-            textMessage.text
+            getFirebaseFirestore(),
+            getFirebaseFunctions(),
+            userId,
+            metaData,
+            route,
+            '$sentFromName Sent you a message',
+            textMessage.text,
+            textMessage.previewData?.image?.url
         );
+      }
+  }
+  /// Retrieves all users in a room.
+  Future<List<types.User>> getUsersInRoom(String roomId) async {
+    final roomRef = getFirebaseFirestore().collection(config.roomsCollectionName).doc(roomId);
+    final roomSnapshot = await roomRef.get();
 
+    if (!roomSnapshot.exists) {
+      return [];
     }
+
+    final roomData = roomSnapshot.data();
+    if (roomData == null || !roomData.containsKey('userIds')) {
+      return [];
+    }
+
+    final List<String> userIds = List<String>.from(roomData['userIds']);
+    final List<types.User> users = [];
+
+    for (final userId in userIds) {
+      final doc = await getFirebaseFirestore()
+          .collection(config.usersCollectionName)
+          .doc(userId)
+          .get();
+
+          if (doc.exists) {
+            final data = doc.data();
+
+            if (data != null) {
+              // Map Firebase fields to types.User fields
+            final user = types.User(
+              id: doc.id,
+              firstName: data['legalName'] ?? '',
+              lastName: data['legalSurname'] ?? '', 
+              imageUrl: data['photoUri'] ?? '',
+            );
+
+              users.add(user);
+            }
+          }
+    }
+
+    return users;
   }
 }

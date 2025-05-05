@@ -13,8 +13,8 @@ class EmailUpdaterFacade implements EAuthFacade {
 
 
   @override
-  Future<Either<AttendeeFormFailure, Unit>> createEmailNotification({required List<String>? sendTo, required String? template, required String? button_link, required String? reference_body_title, required Map<String, dynamic>? attachment}) async {
-    if (_firebaseAuth.currentUser == null || sendTo == null || sendTo.isEmpty == true) {
+  Future<Either<AttendeeFormFailure, Unit>> createEmailNotification({required EmailNotificationItem email}) async {
+    if (_firebaseAuth.currentUser == null || email.sendTo == null || (email.sendTo ?? []).isEmpty == true) {
       return right(unit);
     }
 
@@ -23,13 +23,13 @@ class EmailUpdaterFacade implements EAuthFacade {
 
     ///send mail item
     final mailItem = {
-      'to': sendTo,
-      'attachments' : attachment,
+      'to': email.sendTo,
+      'attachments' : email.attachment,
       'template': {
-        'name': template,
+        'name': email.template,
         'data': {
-          'button_link': button_link,
-          'reference_body_title' : reference_body_title
+          'button_link': email.button_link,
+          'reference_body_title' : email.reference_body_title
         }
       },
     };

@@ -52,52 +52,57 @@ class ResWatcherFacade implements RAuthWatcherFacade {
   }
 
   @override
-  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchCurrentUserReservationItem({required List<ReservationSlotState> resState, required UserProfileModel currentUser, required bool isResInvitation, required int? limit, required bool? isActivity}) async* {
+  Stream<Either<ReservationFormFailure, List<ReservationItem>>> watchCurrentUserReservationItem({required List<ReservationSlotState> resState, required UserProfileModel currentUser, required bool isResInvitation, required int? limit, required int? hoursTimeAhead, required int? hoursTimeBefore, required bool? isActivity, required bool? isPrivate, required bool? isReversedSort, required List<FormStatus>? formState}) async* {
 
     try {
-      if (isResInvitation) {
+      
+       var query = _fireStore
+        .collection('reservation_directory')
+        .where('reservationOwnerId', isEqualTo: currentUser.userId.getOrCrash());
 
-        final userItem = StringItemDto(stringItem: currentUser.userId.getOrCrash()).toJson();
+        // Prioritize whereIn with formState if it's provided
+        if (formState != null && formState.isNotEmpty) {
+          query = query.where('formStatus', whereIn: formState.map((e) => e.toString()).toList());
+        } else {
+          query = query.where('formStatus', isEqualTo: 'FormStatus.published');
+          query = query.where('reservationState', whereIn: resState.map((e) => e.toString()).toList());
+        }
 
-        yield* _fireStore
-            .collection('reservation_directory')
-            .orderBy('createdAtSTC', descending: true)
-            .where('reservationState', whereIn: resState.map((e) => e.toString()).toList())
-            .where('affiliateIds', arrayContainsAny: [userItem]).snapshots().map(
-                (event) {
-                  if (event.docs.isNotEmpty) {
-                    return right<ReservationFormFailure, List<ReservationItem>>(event.docs.map((form) => ReservationItemDto.fromFireStore(form.data()).toDomain()).toList());
-                  }
-                  return left(const ReservationFormFailure.reservationServerError(failed: 'no reservations found'));
-                });
-      } else {
+        if (hoursTimeAhead != null && hoursTimeBefore == null) {
+          /// exclude any reservation that are greater than x hours from now
+          query = query.where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead)).millisecondsSinceEpoch);
+        }
 
-        var query = _fireStore.collection('reservation_directory').orderBy('createdAtSTC', descending: true);
-        query = query.where('reservationOwnerId', isEqualTo: currentUser.userId.getOrCrash());
-        query = query.where('reservationState', whereIn: resState.map((e) => e.toString()).toList());
+       if (hoursTimeBefore != null && hoursTimeAhead == null) {
+          /// exclude any reservations that are less than x number of hours
+          query = query.where('lastSlotTimestamp', isGreaterThan: DateTime.now().subtract(Duration(hours: hoursTimeBefore)).millisecondsSinceEpoch);
+        }
 
-        if (limit != null) {
-          query = query.limit(limit);
+        // Apply additional filters
+        if (isPrivate != null) {
+          query = query.where('isPrivate', isEqualTo: isPrivate);
         }
         if (isActivity != null) {
           query = query.where('isActivity', isEqualTo: isActivity);
         }
+        if (limit != null) {
+          query = query.limit(limit);
+        }
 
-    yield* query.snapshots().map((event) {
+        // Apply sorting
+        query = query.orderBy('createdAtSTC', descending: isReversedSort ?? true);
+
+        yield* query.snapshots().map((event) {
           if (event.docs.isNotEmpty) {
-            return right<ReservationFormFailure, List<ReservationItem>>(event.docs.map((form) {
-              final data = form.data();
-              data['affiliates'] = [];
-
-              return ReservationItemDto.fromFireStore(form.data()).toDomain();
-              }
-            ).toList());
+            return right<ReservationFormFailure, List<ReservationItem>>(
+              event.docs.map((form) => ReservationItemDto.fromFireStore(form.data()).toDomain()).toList(),
+            );
           }
           return left(const ReservationFormFailure.reservationServerError(failed: 'no reservations found'));
         });
-      }
-    } catch (e) {
-      yield left(ReservationFormFailure.reservationServerError(failed: e.toString()));
+
+      } catch (e) {
+        yield left(ReservationFormFailure.reservationServerError(failed: e.toString()));
     }
   }
 
@@ -355,6 +360,8 @@ Future<(List<ReservationItem>, DocumentSnapshot?)> getAllReservations({
   required int? hoursTimeAhead,
   required int? hoursTimeBefore,
   required bool? isActivity,
+  required bool? isPrivate,
+  required bool? reverseOrder,
   required int? limit,
   required bool? isLookingForVendor,
   required String? userId,
@@ -362,7 +369,7 @@ Future<(List<ReservationItem>, DocumentSnapshot?)> getAllReservations({
   }) async {
 
   var query = getFirebaseFirestore().collection('reservation_directory')
-      .orderBy('createdAtSTC', descending: true)
+      .orderBy('lastSlotTimestamp', descending: !(reverseOrder ?? false))
       .where('reservationState', whereIn: statusType.map((e) => e.toString()).toList());
 
 
@@ -373,6 +380,11 @@ Future<(List<ReservationItem>, DocumentSnapshot?)> getAllReservations({
   if (userId != null) {
     query = query.where('reservationOwnerId', isEqualTo: userId);
   }
+
+  if (isPrivate != null) {
+    query = query.where('isPrivate', isEqualTo: isPrivate);
+  }
+  
   if (hoursTimeAhead != null && hoursTimeBefore == null) {
     /// exclude any reservation that are greater than x hours from now
     query = query.where('firstSlotTimestamp', isLessThan: DateTime.now().add(Duration(hours: hoursTimeAhead)).millisecondsSinceEpoch);

@@ -17,6 +17,8 @@ import 'package:check_in_domain/domain/misc/stripe/business_address_service/stri
 import 'package:check_in_domain/domain/misc/stripe/tax_calculation/stripe_tax_calculation.dart';
 import 'package:check_in_domain/domain/misc/stripe/receipt_services/receipt/receipt_pdf_generator.dart';
 import 'package:check_in_domain/domain/misc/discount_code_service/discount_code_item.dart';
+import 'package:check_in_domain/domain/misc/notification_services/email_notification/email_notification_item.dart';
+import 'package:check_in_domain/domain/misc/notification_services/communications_event_item.dart';
 import 'package:check_in_facade/check_in_facade.config.dart';
 import 'package:crypto/crypto.dart';
 
@@ -46,8 +48,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
-
-
+import 'package:googleapis_auth/googleapis_auth.dart' as auth;
+import "package:googleapis_auth/auth_io.dart";
+import 'package:flutter/services.dart';
 
 part 'injection.dart';
 part 'injectable_module.dart';
@@ -77,17 +80,20 @@ part 'auth/reservation_facade/watcher/res_watcher_facade.dart';
 part 'auth/reservation_facade/updater/r_updater_facade.dart';
 part 'auth/reservation_facade/updater/res_updater_facade.dart';
 
-part 'auth/notification_facade/updater/n_auth_facade.dart';
-part 'auth/notification_facade/updater/notification_auth_facade.dart';
-part 'auth/notification_facade/watcher/n_watcher_facade.dart';
-part 'auth/notification_facade/watcher/notification_watcher_facade.dart';
+part 'auth/communications_facade/updater/comm_auth_facade.dart';
+part 'auth/communications_facade/updater/communications_update_facade.dart';
 
-part 'auth/notification_facade/email_updater/email_auth_facade.dart';
-part 'auth/notification_facade/email_updater/e_auth_facade.dart';
+part 'auth/communications_facade/notification_facade/updater/n_auth_facade.dart';
+part 'auth/communications_facade/notification_facade/updater/notification_auth_facade.dart';
+part 'auth/communications_facade/notification_facade/watcher/n_watcher_facade.dart';
+part 'auth/communications_facade/notification_facade/watcher/notification_watcher_facade.dart';
 
-part 'auth/chat_facade/firebase_chat_core_config.dart';
-part 'auth/chat_facade/firebase_chat_facade.dart';
-part 'auth/chat_facade/util.dart';
+part 'auth/communications_facade/email_facade/email_auth_facade.dart';
+part 'auth/communications_facade/email_facade/e_auth_facade.dart';
+
+part 'auth/communications_facade/chat_facade/firebase_chat_core_config.dart';
+part 'auth/communications_facade/chat_facade/firebase_chat_facade.dart';
+part 'auth/communications_facade/chat_facade/util.dart';
 
 part 'auth/circle_community_facade/watcher/c_auth_watcher_facade.dart';
 part 'auth/circle_community_facade/watcher/circle_community_auth_watcher_facade.dart';
@@ -132,6 +138,6 @@ part 'auth/facility_facade/facility_auth_helpers.dart';
 part 'auth/map_facade/firebase_map_facade.dart';
 part 'auth/locations_facade/autocomplete_search_facade.dart';
 
-part 'auth/notification_facade/notification_core_config.dart';
+part 'auth/communications_facade/notification_facade/notification_core_config.dart';
 
 part 'un_auth/share_facade/updater/share_facade.dart';

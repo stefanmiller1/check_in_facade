@@ -28,6 +28,8 @@ Future<Map<String, dynamic>> fetchUser(
   data['id'] = doc.id;
   data['lastSeen'] = data['lastSeen']?.millisecondsSinceEpoch;
   data['role'] = role;
+  data['firstName'] = data['legalName'] ?? '';
+  data['lastName'] = data['legalSurname'] ?? '';
   data['updatedAt'] = data['updatedAt']?.millisecondsSinceEpoch;
   data['imageUrl'] =  data['photoUri'];
 
@@ -84,7 +86,7 @@ Future<types.Room> processRoomDocument(
     ),
   );
 
-  // if (type == types.RoomType.direct.toShortString()) {
+  if (type == types.RoomType.direct.toShortString()) {
     try {
       final otherUser = users.firstWhere(
             (u) => u['id'] != firebaseUser.uid,
@@ -96,7 +98,7 @@ Future<types.Room> processRoomDocument(
     } catch (e) {
       // Do nothing if other user is not found, because he should be found.
       // Consider falling back to some default values.
-    // }
+    }
   }
 
   data['imageUrl'] = imageUrl;
