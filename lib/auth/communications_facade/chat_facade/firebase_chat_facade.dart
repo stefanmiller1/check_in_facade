@@ -225,14 +225,12 @@ Future<void> makeUserAdmin({
 
 
   Future<types.Room> createDirectRoom(
-        String otherUserId,
-        String roomName,
-        String? imageUrl,
-        {
-        Map<String, dynamic>? metadata,
-      }) async {
+    String otherUserId,
+    String roomName,
+    String? imageUrl, {
+    Map<String, dynamic>? metadata,
+  }) async {
     final fu = firebaseUser;
-
     if (fu == null) return Future.error('User does not exist');
 
     final currentUser = await fetchUser(
@@ -241,7 +239,6 @@ Future<void> makeUserAdmin({
       config.usersCollectionName,
       role: types.Role.admin.toShortString(),
     );
-
     final otherUser = await fetchUser(
       getFirebaseFirestore(),
       otherUserId,
@@ -249,39 +246,21 @@ Future<void> makeUserAdmin({
       role: types.Role.admin.toShortString(),
     );
 
-    // Sort two user ids array to always have the same array for both users,
-    // this will make it easy to find the room if exist and make one read only.
+    // Compose a sorted directKey for unique identification of the direct room
+    final sortedIds = [fu.uid, otherUserId]..sort();
+    final directKey = sortedIds.join('_');
+
     final roomUsers = [types.User.fromJson(currentUser), types.User.fromJson(otherUser)];
-    // Check if the room already exists
-    final existingRooms = await getFirebaseFirestore()
+
+    // Use directKey as document ID for uniqueness and atomicity
+    final roomRef = getFirebaseFirestore()
         .collection(config.roomsCollectionName)
-        .where('userIds', arrayContains: fu.uid)
-        .where('type', isEqualTo: types.RoomType.direct.toShortString())
-        .get();
+        .doc(directKey);
 
-    for (var doc in existingRooms.docs) {
-      final data = doc.data();
-      if (data.containsKey('userIds')) {
-        final List<String> existingUserIds = List<String>.from(data['userIds']);
+    final docSnapshot = await roomRef.get();
 
-        if (existingUserIds.toSet().containsAll(roomUsers.map((user) => user.id)) &&
-            existingUserIds.length == 2) {
-          // A direct message room between these users already exists, return it
-          return types.Room(
-            id: doc.id,
-            imageUrl: data['imageUrl'],
-            metadata: data['metadata'],
-            name: data['name'],
-            type: types.RoomType.direct,
-            users: roomUsers
-          );
-        }
-      }
-    }
-
-    // Create new room with sorted user ids array.
-      final room = await getFirebaseFirestore()
-        .collection(config.roomsCollectionName).add({
+    if (!docSnapshot.exists) {
+      await roomRef.set({
         'isArchive': false,
         'createdAt': FieldValue.serverTimestamp(),
         'imageUrl': imageUrl,
@@ -291,34 +270,38 @@ Future<void> makeUserAdmin({
         'updatedAt': FieldValue.serverTimestamp(),
         'userIds': roomUsers.map((u) => u.id).toList(),
         'userRoles': roomUsers.fold<Map<String, String?>>(
-        {},
-            (previousValue, user) => {
+          {},
+          (previousValue, user) => {
             ...previousValue,
             user.id: user.role?.toShortString(),
           },
         ),
+        'directKey': directKey,
       });
 
       await subscribeUserToTopic(
         getFirebaseFirestore(),
         getFirebaseFunctions(),
-        room.id, 
+        roomRef.id,
         firebaseUser!.uid,
-        kIsWeb
+        kIsWeb,
       );
       await subscribeUserToTopic(
         getFirebaseFirestore(),
         getFirebaseFunctions(),
-        room.id, 
+        roomRef.id,
         otherUserId,
-        kIsWeb
+        kIsWeb,
       );
+    }
 
-      return types.Room(
-      id: room.id,
-      imageUrl: imageUrl,
-      metadata: metadata,
-      name: roomName,
+    final data = (await roomRef.get()).data()!;
+
+    return types.Room(
+      id: roomRef.id,
+      imageUrl: data['imageUrl'],
+      metadata: data['metadata'],
+      name: data['name'],
       type: types.RoomType.direct,
       users: roomUsers,
     );
@@ -421,6 +404,8 @@ Future<void> makeUserAdmin({
     );
   }
 
+
+
   /// Returns a stream of changes in a room from Firebase.
   Stream<types.Room> room(String roomId) {
     final fu = firebaseUser;
@@ -467,7 +452,6 @@ Future<void> makeUserAdmin({
         .where('isArchive', isEqualTo: isArchived)
         .orderBy('updatedAt', descending: orderByUpdatedAt);
 
-        
 
     return collection.snapshots().asyncMap(
           (query) {
@@ -480,6 +464,34 @@ Future<void> makeUserAdmin({
         );
       }
     );
+  }
+
+  Stream<List<types.Room>> limitedRooms({required bool isArchived, required types.RoomType? roomType, int limit = 10}) {
+    final fu = firebaseUser;
+
+    if (fu == null) return const Stream.empty();
+
+    final collection = (roomType != null) ? getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .where('userIds', arrayContains: fu.uid)
+        .where('isArchive', isEqualTo: isArchived)
+        .where('type', isEqualTo: roomType.toShortString())
+        .orderBy('updatedAt', descending: true)
+        .limit(limit) : getFirebaseFirestore()
+        .collection(config.roomsCollectionName)
+        .where('userIds', arrayContains: fu.uid)
+        .where('isArchive', isEqualTo: isArchived)
+        .orderBy('updatedAt', descending: true)
+        .limit(limit);
+
+    return collection.snapshots().asyncMap((query) {
+      return processRoomsQuery(
+        fu,
+        getFirebaseFirestore(),
+        query,
+        config.usersCollectionName,
+      );
+    });
   }
 
   Stream<List<types.Room>> roomsFromReservation({required String reservationId}) {
